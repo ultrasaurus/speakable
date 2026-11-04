@@ -1,0 +1,12 @@
+[package]
+name = "speakable-splitter"
+description = "Split plain text into sentences for reading aloud"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+unicode-segmentation = "1"
+roman = "0.2"
+serde = { version = "1.0", features = ["derive"] }
