@@ -15,6 +15,9 @@ use std::collections::HashMap;
 
 pub mod images;
 pub mod linkify;
+mod spans;
+
+pub use spans::{to_html_with_sentence_spans, to_html_with_sentence_spans_and_math_overrides};
 
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
@@ -118,10 +121,8 @@ pub fn split_for_export_with_math_overrides(markdown: &str, math_overrides: &Has
                     *n += 1;
                 }
             }
-            Event::Text(text) | Event::Code(text) => {
-                if !in_code_block && !in_image {
-                    current_plain.push_str(&text);
-                }
+            Event::Text(text) | Event::Code(text) if !in_code_block && !in_image => {
+                current_plain.push_str(&text);
             }
             Event::SoftBreak | Event::HardBreak => {
                 current_plain.push(' ');
@@ -193,8 +194,8 @@ fn collapse_hard_breaks(text: &str) -> String {
             out.push_str(before.trim_end_matches(' '));
             out.push(' ');
             out.push_str(HARD_BREAK_PLACEHOLDER);
-        } else if before.ends_with('\\') {
-            out.push_str(&before[..before.len() - 1]);
+        } else if let Some(before) = before.strip_suffix('\\') {
+            out.push_str(before);
             out.push_str(HARD_BREAK_PLACEHOLDER);
         } else {
             out.push_str(before);
@@ -670,7 +671,7 @@ pub fn close_unclosed_table_rows(text: &str) -> String {
             match target_pipes {
                 Some(target) if pipe_count < target => {
                     let mut padded = line.to_string();
-                    padded.extend(std::iter::repeat('|').take(target - pipe_count));
+                    padded.extend(std::iter::repeat_n('|', target - pipe_count));
                     padded
                 }
                 _ => line.to_string(),
@@ -973,7 +974,7 @@ pub fn is_commonmark_escapable(c: char) -> bool {
 /// index, regardless of any multi-byte Unicode later in the line.
 fn leading_marker_len(line: &str) -> usize {
     let bytes = line.as_bytes();
-    let followed_by_space_or_eol = |i: usize| bytes.get(i).map_or(true, |b| *b == b' ');
+    let followed_by_space_or_eol = |i: usize| bytes.get(i).is_none_or(|b| *b == b' ');
 
     if let Some(&first) = bytes.first() {
         if matches!(first, b'-' | b'+' | b'*') && followed_by_space_or_eol(1) {
@@ -1022,9 +1023,7 @@ fn escape_markdown_chars(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut prev: Option<char> = None;
     for (i, c) in text.chars().enumerate() {
-        let escape = if i >= marker_len && matches!(c, '-' | '.' | '+') {
-            false
-        } else if matches!(c, ',' | ')') {
+        let escape = if (i >= marker_len && matches!(c, '-' | '.' | '+')) || matches!(c, ',' | ')') {
             false
         } else if c == '(' {
             prev == Some(']')
@@ -1134,43 +1133,37 @@ pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMa
             Event::Start(Tag::TableHead | Tag::TableRow) => {
                 table_row_start_len = blocks.len();
             }
-            Event::End(TagEnd::TableHead | TagEnd::TableRow) => {
-                // A row boundary is a hard stop for TTS purposes — without
-                // this, a caller that merges a paragraph not ending in a
-                // finished sentence into the next (to group short headings
-                // with their text) sees consecutive
-                // cell lines with no terminal punctuation and glues an
-                // entire table (headers, unrelated rows, even the
-                // surrounding prose) into one incoherent run-on "sentence"
-                // sent to the model as if it were continuous prose. A
-                // period on the row's last cell is invisible in the
-                // rendered table (that comes from `content`/markdown,
-                // untouched here) but gives TTS a real per-row pause and
-                // stops the merge at the row, not the whole table.
-                if blocks.len() > table_row_start_len {
-                    if let Some(last) = blocks.last_mut() {
-                        if !matches!(last.chars().last(), Some('.' | '?' | '!')) {
-                            last.push('.');
-                        }
+            // A row boundary is a hard stop for TTS purposes — without
+            // this, a caller that merges a paragraph not ending in a
+            // finished sentence into the next (to group short headings
+            // with their text) sees consecutive
+            // cell lines with no terminal punctuation and glues an
+            // entire table (headers, unrelated rows, even the
+            // surrounding prose) into one incoherent run-on "sentence"
+            // sent to the model as if it were continuous prose. A
+            // period on the row's last cell is invisible in the
+            // rendered table (that comes from `content`/markdown,
+            // untouched here) but gives TTS a real per-row pause and
+            // stops the merge at the row, not the whole table.
+            Event::End(TagEnd::TableHead | TagEnd::TableRow) if blocks.len() > table_row_start_len => {
+                if let Some(last) = blocks.last_mut() {
+                    if !matches!(last.chars().last(), Some('.' | '?' | '!')) {
+                        last.push('.');
                     }
                 }
             }
-            Event::Text(text) | Event::Code(text) => {
-                if !in_code_block && !in_image {
-                    current.push_str(&text);
-                }
+            Event::Text(text) | Event::Code(text) if !in_code_block && !in_image => {
+                current.push_str(&text);
             }
-            Event::InlineHtml(html) => {
-                // pulldown_cmark treats any <...> as InlineHtml, including
-                // non-tag markers like <Ref-1> that authors expect to be
-                // read literally. Only drop text that names a real HTML
-                // element; anything else falls through unchanged. An
-                // inline comment (one event, even when it wraps across
-                // lines) is never spoken: `split_for_export` drops it too,
-                // and the rendered document hides it.
-                if !in_image && !html.starts_with("<!--") && !is_known_html_tag(&html) {
-                    current.push_str(&html);
-                }
+            // pulldown_cmark treats any <...> as InlineHtml, including
+            // non-tag markers like <Ref-1> that authors expect to be
+            // read literally. Only drop text that names a real HTML
+            // element; anything else falls through unchanged. An
+            // inline comment (one event, even when it wraps across
+            // lines) is never spoken: `split_for_export` drops it too,
+            // and the rendered document hides it.
+            Event::InlineHtml(html) if !in_image && !html.starts_with("<!--") && !is_known_html_tag(&html) => {
+                current.push_str(&html);
             }
             Event::SoftBreak | Event::HardBreak => {
                 current.push(' ');
@@ -1447,7 +1440,7 @@ fn find_dollar_inline_span(s: &str) -> Option<(usize, usize)> {
 
         let mut j = start + 1;
         loop {
-            let Some(rel2) = s[j..].find('$') else { return None };
+            let rel2 = s[j..].find('$')?;
             let close = j + rel2;
             if is_part_of_double(s, close) {
                 j = close + 1;

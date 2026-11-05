@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Transparency wins</title>
+<style>
+:root {
+  --bg: #fbfaf7;
+  --fg: #1f1f1f;
+  --muted: #6a6a6a;
+  --rule: #e2dfd8;
+  --hover: rgba(0, 0, 0, 0.05);
+  --current: #ffe7a0;
+  --link: #1a5fb4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161616;
+    --fg: #e6e3dc;
+    --muted: #a09c94;
+    --rule: #33312d;
+    --hover: rgba(255, 255, 255, 0.07);
+    --current: #5c4a12;
+    --link: #8ab4f8;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1.125rem/1.7 Charter, "Iowan Old Style", Georgia, serif;
+}
+.player {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+  padding: 0.5rem 1rem;
+}
+.player audio { display: block; width: 100%; max-width: 40rem; margin: 0 auto; }
+main { max-width: 40rem; margin: 0 auto; padding: 1rem 1.25rem 50vh; }
+h1, h2, h3 { line-height: 1.25; }
+a { color: var(--link); }
+img { max-width: 100%; height: auto; }
+table { border-collapse: collapse; }
+td, th { border: 1px solid var(--rule); padding: 0.25rem 0.5rem; }
+blockquote { margin-left: 0; padding-left: 1rem; border-left: 3px solid var(--rule); }
+p .silent { color: var(--muted); font-style: italic; }
+.sentence[start] {
+  cursor: pointer;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 0.15s;
+}
+.sentence[start]:hover { background: var(--hover); }
+.sentence[start]:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.sentence.current, .sentence.current:hover { background: var(--current); }
+@media (prefers-reduced-motion: reduce) {
+  .sentence[start] { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="player"><audio id="audio" controls preload="metadata" src="talk.mp3"></audio></div>
+<main id="text">
+<h1><span class="silent">Transparency wins</span></h1>
+<p><span class="silent">excerpt of a talk given at RubyConf Taiwan Nov 23, 2015</span></p>
+<p><span class="sentence" data-sentence="0" start="0.27" end="10.05">Often these days, when we make things, we put our work in progress out on the internet for all to see.</span> <span class="sentence" data-sentence="1" start="11.25" end="19.32">Even sometimes when it's just sketches, we'll post it to get feedback, to get social affirmation about what we're doing.</span> <span class="sentence" data-sentence="2" start="21.3" end="41.955">We live in a time of unprecedented transparency, with open data, with open source, the lean startup movement, and the rise of social networks and online platforms that allow for communication instantaneously and great visibility.</span></p>
+<p><span class="sentence" data-sentence="3" start="44.115" end="56.835">This can be used to create accountability that is particularly important in government and non-profit organizations and even in for-profits to create trust.</span> <span class="sentence" data-sentence="4" start="59.205" end="66.735">The other reason that transparency is important, and what will be the focus of my talk today, is participation.</span> <span class="sentence" data-sentence="5" start="68.715" end="76.725">Whether that's engaging with people in real life or displaying our test results for all to see.</span> <span class="sentence" data-sentence="6" start="78.525" end="95.565">I'll talk about transparency in code, with open source, in business with lean startup, and how both of these involve community and how we can use open practices and be transparent in the development of a community.</span></p>
+<p><span class="sentence" data-sentence="7" start="98.925" end="106.605">I believe, as others have spoken here in the past, that open source is the path to enlightenment.</span> <span class="sentence" data-sentence="8" start="107.7" end="114.81">In Ruby especially, we believe that programmer happiness is a worthwhile pursuit.</span> <span class="sentence" data-sentence="9" start="115.5" end="156.24">That coding itself can be joyful regardless of the outcome, but the focus of my talk today is when we create software where the goal is for other people to use it, when our software empowers people after it is released in the world, and how to use transparency in order to increase participation, how and why to involve people in the making of change, in creating the world that we'd like to be.</span> <span class="sentence" data-sentence="10" start="158.295" end="161.835">We can't just make things for people.</span> <span class="sentence" data-sentence="11" start="162.735" end="164.895">We have to make them with people.</span></p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var audio = document.getElementById("audio");
+  var text = document.getElementById("text");
+  var player = document.querySelector(".player");
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // How long a highlight stays after its sentence ends, so it doesn't
+  // flicker off in the short pause before the next sentence.
+  var LINGER = 1.0;
+
+  var sentences = Array.prototype.map.call(
+    document.querySelectorAll(".sentence[start][end]"),
+    function (el) {
+      el.tabIndex = 0;
+      el.setAttribute("role", "button");
+      return { el: el, start: parseFloat(el.getAttribute("start")), end: parseFloat(el.getAttribute("end")) };
+    }
+  ).filter(function (s) { return isFinite(s.start) && isFinite(s.end); });
+  sentences.sort(function (a, b) { return a.start - b.start; });
+
+  // The last sentence started at time t, if t is within it or just after.
+  function sentenceAt(t) {
+    var lo = 0, hi = sentences.length - 1, found = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (sentences[mid].start <= t + 0.001) { found = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    if (found < 0) return null;
+    var s = sentences[found];
+    return t <= s.end + LINGER ? s : null;
+  }
+
+  var current = null;
+  function show(s) {
+    if (s === current) return;
+    if (current) current.el.classList.remove("current");
+    current = s;
+    if (!s) return;
+    s.el.classList.add("current");
+    if (!audio.paused) keepInView(s.el);
+  }
+
+  function keepInView(el) {
+    var r = el.getBoundingClientRect();
+    var top = player.getBoundingClientRect().bottom;
+    if (r.top < top || r.bottom > window.innerHeight) {
+      el.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    }
+  }
+
+  var frame = 0;
+  function tick() {
+    show(sentenceAt(audio.currentTime));
+    if (!audio.paused) frame = requestAnimationFrame(tick);
+  }
+  function onPlay() {
+    cancelAnimationFrame(frame);
+    tick();
+  }
+  function onSeek() {
+    show(sentenceAt(audio.currentTime));
+  }
+  // Also on timeupdate: animation frames stop in a background tab, and
+  // timeupdate keeps the highlight right when the page is shown again.
+  function onTimeUpdate() {
+    show(sentenceAt(audio.currentTime));
+  }
+  audio.addEventListener("play", onPlay);
+  audio.addEventListener("seeked", onSeek);
+  audio.addEventListener("timeupdate", onTimeUpdate);
+
+  function play() {
+    var p = audio.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function playFrom(el) {
+    audio.currentTime = parseFloat(el.getAttribute("start"));
+    play();
+  }
+  function onSentenceClick(e) {
+    if (e.target.closest("a")) return;
+    var el = e.target.closest(".sentence[start][end]");
+    if (!el) return;
+    // Selecting text to copy shouldn't jump the audio.
+    if (String(window.getSelection())) return;
+    playFrom(el);
+  }
+  // Enter on a focused sentence plays from it. Space is left to
+  // onSpaceKeyDown, so it toggles play the same way everywhere.
+  function onSentenceKeyDown(e) {
+    if (e.key !== "Enter") return;
+    var el = e.target.closest(".sentence[start][end]");
+    if (!el) return;
+    e.preventDefault();
+    playFrom(el);
+  }
+  // Space toggles play wherever focus is, except where Space already
+  // means something: links, buttons and text fields. Inside the audio
+  // player it toggles too: only the player's play button handles Space
+  // itself, so on its other controls Space would scroll the page.
+  // These listeners run in the capture phase on window, ahead of the
+  // player's own handlers inside it, and stop the key there; otherwise
+  // the play button would toggle a second time.
+  function isSpaceForUs(e) {
+    if (e.key !== " " || e.ctrlKey || e.metaKey || e.altKey) return false;
+    var t = e.target;
+    return t === audio || !(t.closest && t.closest("a[href], button, input, textarea, select, [contenteditable]"));
+  }
+  function onSpaceKeyDown(e) {
+    if (!isSpaceForUs(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.repeat) return;
+    if (audio.paused) play(); else audio.pause();
+  }
+  function onSpaceKeyUpOrPress(e) {
+    if (!isSpaceForUs(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  text.addEventListener("click", onSentenceClick);
+  text.addEventListener("keydown", onSentenceKeyDown);
+  window.addEventListener("keydown", onSpaceKeyDown, true);
+  window.addEventListener("keypress", onSpaceKeyUpOrPress, true);
+  window.addEventListener("keyup", onSpaceKeyUpOrPress, true);
+})();
+</script>
+</body>
+</html>

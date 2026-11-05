@@ -7,11 +7,11 @@
 //!   0. Strip short inline quotes (≤5 words): "foo bar" → foo bar.
 //!   1. Expand known `<Tag-N>` citation/figure/table markers.
 //!   2. Expand year ranges: 1976-77 → "1976 to 77".
-//!   2b. Expand comma-grouped numbers: 2,000 → "two thousand".
-//!   2c. Spell item/reference numbers digit-by-digit: Item 71279 → Item seven one …
-//!   2d. Expand journal links: (AUGMENT,71279,) → Augment seven one two seven nine
+//!      2b. Expand comma-grouped numbers: 2,000 → "two thousand".
+//!      2c. Spell item/reference numbers digit-by-digit: Item 71279 → Item seven one …
+//!      2d. Expand journal links: (AUGMENT,71279,) → Augment seven one two seven nine
 //!   3. Apply punctuated overrides from the override table (e.g. "e.g.").
-//!   3b. Replace dots between alphanumeric chars with " dot ": 4b.l → 4b dot l.
+//!      3b. Replace dots between alphanumeric chars with " dot ": 4b.l → 4b dot l.
 //!   4. Tokenize on word boundaries:
 //!      a. Apply single-word overrides (case-insensitive).
 //!      b. Spell out short all-caps (≤3 chars) letter by letter: UIS → U I S.
@@ -526,7 +526,7 @@ fn normalize_with_spans_in(text: &str, overrides: &HashMap<String, String>, punc
     // Pass 10: tokenize and process word/alphanumeric tokens (override
     // lookup, alphanumeric splitting, all-caps handling, Roman numerals,
     // leading-zero digit sequences); replace remaining hyphens with spaces.
-    let chunks = tokenize_spanned(chunks, &overrides);
+    let chunks = tokenize_spanned(chunks, overrides);
 
     // Pass 11: strip bracket characters (keeping their contents) — VibeVoice
     // hallucinates on tokens with `<>`/`()`/`[]` next to other punctuation.
@@ -2378,7 +2378,7 @@ fn four_digit_group_words(digits: &str) -> String {
 /// digit characters), entirely dropping that word from alignment results.
 pub fn spell_bare_digit_group(digits: &str) -> Option<String> {
     let len = digits.chars().count();
-    if !matches!(len, 1 | 2 | 3 | 4) { return None; }
+    if !matches!(len, 1..=4) { return None; }
     if len > 1 && digits.starts_with('0') { return None; }
     Some(match len {
         1 | 2 => number_to_words(digits.parse().expect("1-2 ascii digits")),

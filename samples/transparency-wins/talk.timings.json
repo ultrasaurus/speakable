@@ -1,0 +1,78 @@
+{
+  "version": "0.1",
+  "audio": "talk.mp3",
+  "sentences": [
+    {
+      "index": 0,
+      "text": "Often these days, when we make things, we put our work in progress out on the internet for all to see.",
+      "start": 0.27,
+      "end": 10.05
+    },
+    {
+      "index": 1,
+      "text": "Even sometimes when it's just sketches, we'll post it to get feedback, to get social affirmation about what we're doing.",
+      "start": 11.25,
+      "end": 19.32
+    },
+    {
+      "index": 2,
+      "text": "We live in a time of unprecedented transparency, with open data, with open source, the lean startup movement, and the rise of social networks and online platforms that allow for communication instantaneously and great visibility.",
+      "start": 21.3,
+      "end": 41.955
+    },
+    {
+      "index": 3,
+      "text": "This can be used to create accountability that is particularly important in government and non-profit organizations and even in for-profits to create trust.",
+      "start": 44.115,
+      "end": 56.835
+    },
+    {
+      "index": 4,
+      "text": "The other reason that transparency is important, and what will be the focus of my talk today, is participation.",
+      "start": 59.205,
+      "end": 66.735
+    },
+    {
+      "index": 5,
+      "text": "Whether that's engaging with people in real life or displaying our test results for all to see.",
+      "start": 68.715,
+      "end": 76.725
+    },
+    {
+      "index": 6,
+      "text": "I'll talk about transparency in code, with open source, in business with lean startup, and how both of these involve community and how we can use open practices and be transparent in the development of a community.",
+      "start": 78.525,
+      "end": 95.565
+    },
+    {
+      "index": 7,
+      "text": "I believe, as others have spoken here in the past, that open source is the path to enlightenment.",
+      "start": 98.925,
+      "end": 106.605
+    },
+    {
+      "index": 8,
+      "text": "In Ruby especially, we believe that programmer happiness is a worthwhile pursuit.",
+      "start": 107.7,
+      "end": 114.81
+    },
+    {
+      "index": 9,
+      "text": "That coding itself can be joyful regardless of the outcome, but the focus of my talk today is when we create software where the goal is for other people to use it, when our software empowers people after it is released in the world, and how to use transparency in order to increase participation, how and why to involve people in the making of change, in creating the world that we'd like to be.",
+      "start": 115.5,
+      "end": 156.24
+    },
+    {
+      "index": 10,
+      "text": "We can't just make things for people.",
+      "start": 158.295,
+      "end": 161.835
+    },
+    {
+      "index": 11,
+      "text": "We have to make them with people.",
+      "start": 162.735,
+      "end": 164.895
+    }
+  ]
+}

@@ -1,5 +1,4 @@
 use unicode_segmentation::UnicodeSegmentation;
-use roman;
 use serde::{Deserialize, Serialize};
 
 /// Placeholder that temporarily replaces periods in known abbreviations so
@@ -866,8 +865,8 @@ fn is_citation_locator_tail(text: &str) -> bool {
     let normalized = text.replace(PERIOD_PLACEHOLDER, ".");
     let Some(s) = normalized.trim().strip_suffix(']') else { return false };
     let s = s.strip_suffix('.').unwrap_or(s);
-    let s = s.trim_start_matches(|c: char| matches!(c, ')' | '"' | '\'' | '\u{201D}' | '\u{2019}'));
-    let s = s.trim_start_matches(|c: char| matches!(c, ',' | ';')).trim_start();
+    let s = s.trim_start_matches([')', '"', '\'', '\u{201D}', '\u{2019}']);
+    let s = s.trim_start_matches([',', ';']).trim_start();
     // The page-locator keyword itself is optional — some citation styles
     // (e.g. `[1 Timothy 3:15; Fox, Journal, p. 24]`'s own sibling style,
     // or a bare `, 5]`) give just the number.
@@ -920,7 +919,7 @@ fn is_label_part(part: &str) -> bool {
         return true;
     }
     if alpha.iter().all(|c| c.is_lowercase()) {
-        return roman::from(&part.to_uppercase()).map_or(false, |n| n <= 100);
+        return roman::from(&part.to_uppercase()).is_some_and(|n| n <= 100);
     }
     false
 }
@@ -983,7 +982,7 @@ fn is_single_initial_token(token: &str) -> bool {
 /// `"Engelbart, D."`, `"J. R. R."`) — the rest of the sentence can be
 /// anything.
 fn ends_with_bare_initial(s: &str) -> bool {
-    s.trim().split_whitespace().last().is_some_and(is_single_initial_token)
+    s.split_whitespace().last().is_some_and(is_single_initial_token)
 }
 
 /// Merges a sentence ending in a bare middle initial onto the sentence that

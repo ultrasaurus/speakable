@@ -123,9 +123,8 @@ pub fn match_book(chars: &[char], i: usize) -> Option<(&'static str, bool, usize
             // Word boundary after the match — but a trailing "." in an
             // abbreviation is itself the boundary character, so only check
             // past it when the candidate doesn't already end in one.
-            if !candidate.ends_with('.') {
-                if i + len < chars.len() && is_word_char(chars[i + len]) { continue; }
-            }
+            if !candidate.ends_with('.')
+                && i + len < chars.len() && is_word_char(chars[i + len]) { continue; }
             if best.map(|(_, _, best_len)| len > best_len).unwrap_or(true) {
                 best = Some((book.spoken_name, book.psalms_style, len));
             }

@@ -1,0 +1,15 @@
+[package]
+name = "speakable"
+description = "Command-line tools for sentence timings and demo pages"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "speakable"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+speakable-timings = { path = "../speakable-timings", version = "0.1.0" }

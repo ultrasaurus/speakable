@@ -5,6 +5,7 @@ Rust crates that support reading a markdown document aloud.
 - Split text into sentences.
 - Turn markdown into the plain text a voice should read.
 - Rewrite each sentence into the words that would be spoken by a reader.
+- Generate sentence timings for an audio file
 
 Use them together so that the sentences a voice speaks are the same
 sentences a page highlights.
@@ -30,6 +31,8 @@ crates exist to make that true.
 | [`speakable-splitter`](crates/speakable-splitter) | Plain text → sentences, with paragraph boundaries. |
 | [`speakable-markdown`](crates/speakable-markdown) | Markdown → speakable plain text, split into sentences. Math is spoken through [`math-to-speech`](https://github.com/ultrasaurus/math-to-speech). |
 | [`speakable-normalizer`](crates/speakable-normalizer) | One sentence → its spoken form ("1976-77" → "nineteen seventy six to seventy seven"), with a source-span map back to the original text. |
+| [`speakable-timings`](crates/speakable-timings) | Sentence timings from timed words (a transcript or forced alignment): the JSON format, the word-to-sentence mapper, a Descript transcript reader, and a demo page. |
+| [`speakable`](crates/speakable) | The `speakable` CLI: `speakable descript` writes timings from a Descript transcript, `speakable demo` writes a page that highlights each sentence as it plays. |
 
 ## Using them
 
@@ -55,6 +58,12 @@ cargo nextest run
 
 The workspace sets `opt-level = 3` for `speakable-normalizer` in dev
 builds: unoptimized, it runs about 9x slower.
+
+## Samples
+
+[`samples/`](samples/) holds recordings with their text, for trying
+speakable. `samples/` is not under the MIT/Apache license below: each
+sample's README gives its terms.
 
 ## Acknowledgements
 

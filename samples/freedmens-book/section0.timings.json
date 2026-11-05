@@ -1,0 +1,90 @@
+{
+  "version": "0.1",
+  "audio": "section0.mp3",
+  "sentences": [
+    {
+      "index": 0,
+      "text": "THE FREEDMEN'S BOOK.",
+      "start": 2.04,
+      "end": 3.3
+    },
+    {
+      "index": 1,
+      "text": "By L. MARIA CHILD.",
+      "start": 15.06,
+      "end": 16.8
+    },
+    {
+      "index": 2,
+      "text": "TO",
+      "start": 17.52,
+      "end": 17.73
+    },
+    {
+      "index": 3,
+      "text": "THE LOYAL AND BRAVE",
+      "start": 17.73,
+      "end": 21.18
+    },
+    {
+      "index": 4,
+      "text": "CAPTAIN ROBERT SMALL,",
+      "start": 21.18,
+      "end": 22.68
+    },
+    {
+      "index": 5,
+      "text": "Hero of the Steamboat Planter,",
+      "start": 22.71,
+      "end": 24.6
+    },
+    {
+      "index": 6,
+      "text": "THIS VOLUME IS RESPECTFULLY DEDICATED BY L. MARIA CHILD.",
+      "start": 25.005,
+      "end": 29.115
+    },
+    {
+      "index": 7,
+      "text": "TO THE FREEDMEN.",
+      "start": 29.325,
+      "end": 30.225
+    },
+    {
+      "index": 8,
+      "text": "I have prepared this book expressly for you, with the hope that those of you who can read will read it aloud to others, and that all of you will derive fresh strength and courage from this true record of what colored men have accomplished, under great disadvantages.",
+      "start": 31.845,
+      "end": 46.875
+    },
+    {
+      "index": 9,
+      "text": "I have written all the biographies over again, in order to give you as much information as possible in the fewest words.",
+      "start": 48.585,
+      "end": 55.485
+    },
+    {
+      "index": 10,
+      "text": "I take nothing for my services; and the book is sold to you at the cost of paper, printing, and binding.",
+      "start": 56.085,
+      "end": 62.205
+    },
+    {
+      "index": 11,
+      "text": "Whatever money you pay for any of the volumes will be immediately invested in other volumes to be sent to freedmen in various parts of the country, on the same terms; and whatever money remains in my hands, when the book ceases to sell, will be given to the Freedmen's Aid Association, to be expended in schools for you and your children.",
+      "start": 62.955,
+      "end": 84.135
+    },
+    {
+      "index": 12,
+      "text": "Your old friend,",
+      "start": 85.065,
+      "end": 86.505
+    },
+    {
+      "index": 13,
+      "text": "L. MARIA CHILD.",
+      "start": 86.925,
+      "end": 88.365
+    }
+  ]
+}
