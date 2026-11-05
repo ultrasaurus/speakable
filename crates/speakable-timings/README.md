@@ -61,6 +61,24 @@ so sentence `i` in the JSON is `data-sentence="i"` on the page.
 - `text` is the sentence's plain text, before any normalization, so a
   reader can detect an edited document.
 
+### Words
+
+A sentence can also list its words with their times (the CLI writes them
+with `--words`). They're left out when not asked for.
+
+```json
+{ "index": 2, "text": "We live in ...", "start": 21.3, "end": 41.955,
+  "words": [
+    { "text": "We", "start": 21.3, "end": 21.54 },
+    { "text": "with" }
+  ] }
+```
+
+- The words are the sentence's plain-text words, split as `words` splits
+  them, punctuation included, in order.
+- Every word is listed. One with no audio (skipped by the reader, or with
+  nothing to say) has no `start` or `end`.
+
 ### Report
 
 Timings can also carry a `report` of where the text and the audio differ

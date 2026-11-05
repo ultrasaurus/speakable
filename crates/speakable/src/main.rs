@@ -33,6 +33,9 @@ enum Command {
         /// differ) into the timings JSON.
         #[arg(long)]
         report: bool,
+        /// Also write each sentence's words with their times.
+        #[arg(long)]
+        words: bool,
     },
     /// Write a one-file HTML page that highlights each sentence as the
     /// audio plays.
@@ -59,7 +62,7 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> Result<(), String> {
     match cli.command {
-        Command::Descript { doc, transcript, audio, output, report: with_report } => {
+        Command::Descript { doc, transcript, audio, output, report: with_report, words: with_words } => {
             let markdown = read(&doc)?;
             let transcript = DescriptTranscript::from_json(&read(&transcript)?)
                 .map_err(|e| format!("{}: not a Descript transcript: {e}", transcript.display()))?;
@@ -68,6 +71,9 @@ fn run(cli: Cli) -> Result<(), String> {
             summarize(&timings, with_report);
             if !with_report {
                 timings.report = Default::default();
+            }
+            if !with_words {
+                timings.sentences.iter_mut().for_each(|s| s.words.clear());
             }
             write(&output, &timings.to_json())?;
             Ok(())

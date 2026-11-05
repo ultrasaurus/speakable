@@ -29,6 +29,9 @@ pub struct SentenceMap {
     /// Per sentence: the start of its first timed word and the end of its
     /// last, or `None` when no timed word lined up with it.
     pub times: Vec<Option<(f64, f64)>>,
+    /// Per sentence, per word of `sentence_words`: the word's time, or
+    /// `None` when no timed word lined up with it.
+    pub word_times: Vec<Vec<Option<(f64, f64)>>>,
     /// Where the text and the timed words differ. `filtered` is always
     /// empty and `threshold` absent: those come from an aligner.
     pub report: Report,
@@ -55,6 +58,8 @@ struct TextWord<'a> {
     key: String,
     text: &'a str,
     sentence: usize,
+    /// Position among its sentence's words.
+    pos: usize,
     /// Position among all of `sentence_words`' words, counting the ones
     /// left out of the diff: the report's `word_index`.
     word_index: usize,
@@ -83,10 +88,10 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
     let mut text: Vec<TextWord> = Vec::new();
     let mut total_words = 0usize;
     for (sentence, words) in sentence_words.iter().enumerate() {
-        for word in words {
+        for (pos, word) in words.iter().enumerate() {
             let key = compare_key(word);
             if !key.is_empty() {
-                text.push(TextWord { key, text: word, sentence, word_index: total_words });
+                text.push(TextWord { key, text: word, sentence, pos, word_index: total_words });
             }
             total_words += 1;
         }
@@ -171,7 +176,9 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
     }
 
     let mut times: Vec<Option<(f64, f64)>> = vec![None; sentence_words.len()];
+    let mut by_sentence: Vec<Vec<Option<(f64, f64)>>> = sentence_words.iter().map(|w| vec![None; w.len()]).collect();
     for (w, t) in text.iter().zip(&word_times) {
+        by_sentence[w.sentence][w.pos] = *t;
         let Some((start, end)) = *t else { continue };
         let slot = &mut times[w.sentence];
         *slot = Some(match *slot {
@@ -180,7 +187,7 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
         });
     }
 
-    SentenceMap { times, report }
+    SentenceMap { times, word_times: by_sentence, report }
 }
 
 fn joined(words: &[&TimedWord]) -> String {
@@ -329,6 +336,10 @@ mod tests {
         let m = map_words(&s, &timed("spoken here spoken again"));
         assert_eq!(m.times, vec![Some((0.0, 2.0)), None, Some((2.0, 4.0))]);
         assert_eq!(
+            m.word_times,
+            vec![vec![Some((0.0, 1.0)), Some((1.0, 2.0))], vec![None], vec![Some((2.0, 3.0)), Some((3.0, 4.0))]]
+        );
+        assert_eq!(
             m.report.missing,
             vec![MissingWord { sentence: 1, word_index: 2, word: "Skipped.".into() }]
         );
@@ -343,6 +354,8 @@ mod tests {
         let s = sentences(&["One & two."]);
         let m = map_words(&s, &timed("one"));
         assert_eq!(m.report.missing, vec![MissingWord { sentence: 0, word_index: 2, word: "two.".into() }]);
+        // Every word has a slot, timed or not.
+        assert_eq!(m.word_times, vec![vec![Some((0.0, 1.0)), None, None]]);
     }
 
     #[test]

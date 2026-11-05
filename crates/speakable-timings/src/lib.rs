@@ -15,7 +15,7 @@ pub use demo::{render_demo, title_of};
 pub use descript::{DescriptSegment, DescriptTranscript};
 pub use format::{
     Error, FilteredWord, Insertion, InsertionAt, MissingWord, Report, SentenceTiming, Stale, SuspectReason,
-    SuspectWord, Timings, FORMAT_VERSION,
+    SuspectWord, Timings, WordTiming, FORMAT_VERSION,
 };
 pub use map::{compare_key, map_words, words, SentenceMap, TimedWord};
 
@@ -32,6 +32,9 @@ pub fn document_sentences(markdown: &str) -> Vec<String> {
 /// The words compared are each sentence's plain text: silent text left
 /// out, math spoken, and not normalized. That suits a transcript, which
 /// writes what was heard as ordinary words.
+///
+/// Each sentence lists its words with their times; clear `words` to leave
+/// them out of the JSON.
 pub fn timings_from_words(markdown: &str, timed: &[TimedWord], audio: &str) -> Timings {
     let texts = document_sentences(markdown);
     let sentence_words: Vec<Vec<String>> = texts
@@ -54,13 +57,18 @@ pub fn timings_from_words(markdown: &str, timed: &[TimedWord], audio: &str) -> T
         audio: audio.to_string(),
         sentences: texts
             .into_iter()
-            .zip(&map.times)
+            .zip(map.times.iter().zip(&sentence_words).zip(&map.word_times))
             .enumerate()
-            .map(|(index, (text, t))| SentenceTiming {
+            .map(|(index, (text, ((t, words), word_times)))| SentenceTiming {
                 index,
                 text,
                 start: t.map(|t| ms(t.0)),
                 end: t.map(|t| ms(t.1)),
+                words: words
+                    .iter()
+                    .zip(word_times)
+                    .map(|(w, t)| WordTiming { text: w.clone(), start: t.map(|t| ms(t.0)), end: t.map(|t| ms(t.1)) })
+                    .collect(),
             })
             .collect(),
         report: map.report,
@@ -101,8 +109,24 @@ mod tests {
             version: FORMAT_VERSION.into(),
             audio: "doc.mp3".into(),
             sentences: vec![
-                SentenceTiming { index: 0, text: "One.".into(), start: Some(0.42), end: Some(3.1) },
-                SentenceTiming { index: 1, text: "Two.".into(), start: None, end: None },
+                SentenceTiming {
+                    index: 0,
+                    text: "One.".into(),
+                    start: Some(0.42),
+                    end: Some(3.1),
+                    words: vec![WordTiming { text: "One.".into(), start: Some(0.42), end: Some(3.1) }],
+                },
+                SentenceTiming {
+                    index: 1,
+                    text: "Two & three.".into(),
+                    start: None,
+                    end: None,
+                    words: vec![
+                        WordTiming { text: "Two".into(), start: None, end: None },
+                        WordTiming { text: "&".into(), start: None, end: None },
+                        WordTiming { text: "three.".into(), start: None, end: None },
+                    ],
+                },
             ],
             report: Report {
                 insertions: vec![
@@ -145,6 +169,8 @@ mod tests {
         assert!(json.contains("\"before_sentence\": 0"), "{json}");
         assert!(json.contains("\"in_sentence\": 1"), "{json}");
         assert!(json.contains("\"reason\": \"Replaced\""), "{json}");
+        // A word with no times is listed, with only its text.
+        assert!(json.contains("{\n          \"text\": \"&\"\n        }"), "{json}");
         assert_eq!(Timings::from_json(&json).unwrap(), t);
         assert!(matches!(
             Timings::from_json(&json.replace("\"version\": \"0.1\"", "\"version\": \"0.2\"")),
@@ -154,8 +180,16 @@ mod tests {
 
     #[test]
     fn an_empty_report_is_left_out() {
-        let t = timings_from_words("One here.", &[TimedWord::new("one", 0.0, 0.2), TimedWord::new("here", 0.2, 0.5)], "a.mp3");
+        let mut t = timings_from_words("One here.", &[TimedWord::new("one", 0.0, 0.2), TimedWord::new("here", 0.2, 0.5)], "a.mp3");
         assert!(t.report.is_empty());
+        assert_eq!(
+            t.sentences[0].words,
+            vec![
+                WordTiming { text: "One".into(), start: Some(0.0), end: Some(0.2) },
+                WordTiming { text: "here.".into(), start: Some(0.2), end: Some(0.5) },
+            ]
+        );
+        t.sentences[0].words.clear();
         let json = t.to_json();
         assert!(!json.contains("report"), "{json}");
         assert_eq!(Timings::from_json(&json).unwrap(), t);

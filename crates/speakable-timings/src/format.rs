@@ -53,6 +53,26 @@ pub struct SentenceTiming {
     pub start: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end: Option<f64>,
+    /// The sentence's words in order, each with its time, when the producer
+    /// was asked for them. Left out of the JSON when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub words: Vec<WordTiming>,
+}
+
+/// One word of a sentence's plain text and its time in the audio.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WordTiming {
+    /// The word as it appears in the sentence's plain text, punctuation
+    /// included.
+    pub text: String,
+    /// Seconds from the start of the audio. Both are absent for a word with
+    /// no audio: one the reader skipped, or one with nothing to say (a
+    /// symbol the normalizer drops). The word is still listed, so a
+    /// sentence's words are all there, in order.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<f64>,
 }
 
 impl SentenceTiming {
