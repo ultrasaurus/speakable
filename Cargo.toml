@@ -2,6 +2,7 @@
 members = [
     "crates/speakable-splitter",
     "crates/speakable-markdown",
+    "crates/speakable-normalizer",
 ]
 resolver = "2"
 
@@ -10,3 +11,8 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ultrasaurus/speakable"
+
+# The normalizer runs about 9x slower unoptimized, which makes its large test
+# suite (and any dev build that normalizes a whole document) slow.
+[profile.dev.package.speakable-normalizer]
+opt-level = 3

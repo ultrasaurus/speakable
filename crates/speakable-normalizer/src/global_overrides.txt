@@ -1,0 +1,172 @@
+# Matching (left-side) for a word-only key (no punctuation, e.g. mr, html)
+# is always case-insensitive — key case there is cosmetic only.
+# Substitution (right-side) is literal (case can affect TTS pronunciation)
+#
+# Trailing period matters, though:
+#   - No punctuation in the key (mr, html) -> matched as a whole word,
+#     independent of whatever punctuation follows it in the source text.
+#     Don't add a period to these; it would change how the key matches
+#     (see below) and break the common no-period case.
+#   - A period (or other punctuation) in the key (no., vol., jan.) ->
+#     matched as a literal substring, period included. Required whenever
+#     the bare word without it is a real word or name you don't want to
+#     catch by accident (vol, Jan the name) — the period scopes the
+#     override to only the abbreviation usage.
+#   - A punctuated key is matched case-sensitively if it contains any
+#     uppercase letter, case-insensitively otherwise. Use this when even the
+#     period doesn't disambiguate: "No." (the "Vol. 31, No. 7" citation
+#     abbreviation) needs its capital N, since lowercase "no." is the
+#     ordinary word "no" ending a sentence — same distinction the sentence
+#     splitter's ABBREVS list already makes for the same word
+#     (speakable-splitter).
+"!"	exclamation point
+"#"	hash
+"$"	dollar sign
+"%"	percent
+"&"	ampersand
+"'"	apostrophe
+"("	open parenthesis
+")"	close parenthesis
+"*"	asterisk
+"+"	plus
+","	comma
+"-"	hyphen
+"/"	slash
+":"	colon
+";"	semicolon
+"<"	less than
+"="	equals
+">"	greater than
+"?"	question mark
+"@"	at sign
+"["	open bracket
+"]"	close bracket
+"^"	caret
+"_"	underscore
+"`"	backtick
+"{"	open brace
+"|"	pipe
+"}"	close brace
+"~"	tilde
+=	equal
++	plus
+±	plus or minus
+&	and
+α	alpha
+β	beta
+Ω	omega
+Δ	delta
+δ	delta
+§	section
+§§	sections
+©	copyright
+Σ	sigma
+3" x 5"	three by five inch
+2nd ed.	second edition
+3rd ed.	third edition
+4th ed.	fourth edition
+5th ed.	fifth edition
+international ed.	international edition
+8 1/2" x 11"	eight and a half by eleven inch
+jan.	January
+feb	February
+mar.	March
+apr	April
+jun	June
+jul	July
+aug	August
+sep	September
+sept	September
+oct	October
+nov	November
+dec	December
+arpanet	arpa net
+ave.	Avenue
+blvd	Boulevard
+cd rom	C D Rom
+cd roms	C D Roms
+dept.	Department
+d.c.	D C
+e.g.	for example
+ed. note	Editor's Note
+Eds	Editors
+etc	et cetera
+fig.	Figure
+goto,	Go To,
+html	HTML
+http	HTTP
+https	HTTPS
+i.e.	that is
+json	jason
+mr.	Mister
+mrs.	Missus
+mlle.	Mademoiselle
+mme.	Madame
+dr.	Doctor
+No.	Number
+nrsv	New Revised Standard Version
+ph.d.	P H D
+ph. d.	P H D
+phd	P H D
+ch	chapter
+p.	page
+pp.	pages
+ref. 	reference
+rev. ed.	revised edition
+tbsp	tablespoon
+tsp	teaspoon
+u.s.	U S
+viz.	namely
+vol.	volume
+vs	versus
+vols.	volumes
+volume #	volume number
+wysiwyg	wizzy wig
+yaml	yamel
+Johann	Yohann
+Jurgen	Yurgen
+Hz	Hertz
+kHz	kilohertz
+dB/octave	decibels per octave
+dB	decibels
+ISO	Eye So
+ISBN	I S B N
+et al.	and others
+all	all
+lbs	pounds
+lb	pound
+in.	inch
+cm	centimeter
+cm2	square centimeter
+ft	feet
+°	degrees
+%	percent
+N. lat.	north latitude
+S. lat.	south latitude
+E. long.	east longitude
+W. long.	west longitude
+C++	C plus plus
+HIV+	H I V positive
+HIV-	H I V negative
+J Am Acad Audiol	 Journal of the American Academy of Audiology
+Rev Fac Cien Med Univ Nac Cordoba	Revista de la Facultad de Ciencias Médicas de Córdoba
+Eur J Neurol Off J Eur Fed Neurol Soc	European Journal of Neurology, Official Journal of the European Federation of Neurological Societies
+PubMed	Pub Med
+arXiv	archive
+finetuning	fine tuning
+
+# 20,000 Leagues Under the Sea
+M. Aronnax	Monsieur Aronnax
+
+# A Testament of Devotion
+
+ERBN	E R B N
+NCBI	N C B I
+SPSS	S P S S
+IDFT	I D F T
+fm	F M
+ipRGC	I P R G C
+
+notem	no tem
+DFTs	D F tees
+

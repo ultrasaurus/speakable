@@ -1,0 +1,12 @@
+[package]
+name = "speakable-normalizer"
+description = "Rewrite English text into the words a text-to-speech voice should say"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+roman = "0.2"
+num2words = "1.2.0"
+tracing = "0.1"
