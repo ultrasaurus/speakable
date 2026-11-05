@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/speakable-splitter",
+    "crates/speakable-markdown",
 ]
 resolver = "2"
 

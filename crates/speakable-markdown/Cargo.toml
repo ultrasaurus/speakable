@@ -1,0 +1,12 @@
+[package]
+name = "speakable-markdown"
+description = "Markdown to speakable plain text, split into sentences"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pulldown-cmark = "0.13"
+speakable-splitter = { path = "../speakable-splitter", version = "0.1.0" }
+math-to-speech = { git = "https://github.com/ultrasaurus/math-to-speech.git", tag = "v0.1.20" }
