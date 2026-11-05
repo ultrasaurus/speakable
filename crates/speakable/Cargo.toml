@@ -10,6 +10,17 @@ repository.workspace = true
 name = "speakable"
 path = "src/main.rs"
 
+[features]
+default = ["align"]
+# `align` and `demo --audio`: forced alignment, which brings in the model
+# runtime (candle) and downloads the model on first use.
+align = ["dep:speakable-align"]
+metal = ["align", "speakable-align/metal"]
+cuda = ["align", "speakable-align/cuda"]
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-speakable-timings = { path = "../speakable-timings", version = "0.1.0" }
+speakable-align = { workspace = true, optional = true }
+speakable-markdown.workspace = true
+speakable-normalizer.workspace = true
+speakable-timings.workspace = true

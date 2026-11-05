@@ -1,18 +1,26 @@
 # speakable
 
-Rust crates that support reading a markdown document aloud.
+Rust crates for highlighting text sentence by sentence as its audio plays.
 
-- Split text into sentences.
-- Turn markdown into the plain text a voice should read.
-- Rewrite each sentence into the words that would be spoken by a reader.
-- Generate sentence timings for an audio file
+1. Turn markdown into the plain text a voice should read. (speakable-markdown)
+2. Split text into sentences. (speakable-splitter)
+3. Rewrite each sentence into the words that would be spoken by a reader.
+  (speakable-normalizer)
+4. Generate sentence timings for an audio file (speakable-align)
+5. Generate HTML, where sentence spans have timestamps (speakable-timings)
 
-Use them together so that the sentences a voice speaks are the same
-sentences a page highlights.
+The `speakable` CLI uses them together so that the sentences a voice speaks are
+the same sentences a page highlights.
+
+```
+cargo install --path crates/speakable
+speakable demo sample.md --audio sample.mp3 -o sample.html
+```
+then open sample.html in a browser
 
 English only for now.
 
-## Why sentences? 
+## Why sentences?
 
 When seeking, starting at the beginning of a sentence is a natural place to
 start audio playing. Also, highlighting text that follows the voice adds:
@@ -32,19 +40,13 @@ crates exist to make that true.
 | [`speakable-markdown`](crates/speakable-markdown) | Markdown → speakable plain text, split into sentences. Math is spoken through [`math-to-speech`](https://github.com/ultrasaurus/math-to-speech). |
 | [`speakable-normalizer`](crates/speakable-normalizer) | One sentence → its spoken form ("1976-77" → "nineteen seventy six to seventy seven"), with a source-span map back to the original text. |
 | [`speakable-timings`](crates/speakable-timings) | Sentence timings from timed words (a transcript or forced alignment): the JSON format, the word-to-sentence mapper, a Descript transcript reader, and a demo page. |
-| [`speakable`](crates/speakable) | The `speakable` CLI: `speakable descript` writes timings from a Descript transcript, `speakable demo` writes a page that highlights each sentence as it plays. |
+| [`speakable-align`](crates/speakable-align) | Sentence and word timings from an audio file, by forced alignment ([forced-alignment-rs](https://github.com/ultrasaurus/forced-alignment-rs)): normalizes the text, aligns, and maps the times back to the document's words. |
+| [`speakable`](crates/speakable) | The `speakable` CLI: `speakable descript` writes timings from a Descript transcript, `speakable align` writes them from the audio itself, and `speakable demo` writes a page that highlights each sentence as it plays. |
 
 ## Using them
 
 All crates share one version and one git tag. Depend on each crate by
 package name from this repo, at the same tag:
-
-```toml
-[dependencies]
-speakable-splitter = { git = "https://github.com/ultrasaurus/speakable", tag = "v0.1.0" }
-speakable-markdown = { git = "https://github.com/ultrasaurus/speakable", tag = "v0.1.0" }
-speakable-normalizer = { git = "https://github.com/ultrasaurus/speakable", tag = "v0.1.0" }
-```
 
 - Cargo builds only the crates you name.
 - Use one tag for every crate. Then the splitter inside

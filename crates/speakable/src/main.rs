@@ -1,5 +1,5 @@
-//! `speakable`: write sentence timings from a transcript, and demo pages
-//! that play them.
+//! `speakable`: write sentence timings from a transcript or an audio file,
+//! and demo pages that play them.
 
 use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
@@ -22,7 +22,7 @@ enum Command {
         doc: PathBuf,
         /// Descript's transcript export (JSON).
         transcript: PathBuf,
-        /// The recording the transcript is of. The timings refer to it by
+        /// The audio file the transcript is of. The timings refer to it by
         /// its path relative to the output file.
         #[arg(long)]
         audio: PathBuf,
@@ -37,13 +37,40 @@ enum Command {
         #[arg(long)]
         words: bool,
     },
-    /// Write a one-file HTML page that highlights each sentence as the
-    /// audio plays.
-    Demo {
-        /// The markdown document.
+    /// Write sentence timings by aligning an audio file against its text
+    /// (forced alignment).
+    Align {
+        /// The audio file (mp3 or wav). The timings refer to it by its path
+        /// relative to the output file.
+        audio: PathBuf,
+        /// The document that was read aloud: markdown (`.md`, `.markdown`)
+        /// or plain text (anything else, one paragraph per line). Text
+        /// overrides in `<doc>.overrides.txt` beside it, when present, are
+        /// layered over the normalizer's built-in ones.
         doc: PathBuf,
-        /// Its timings JSON.
-        timings: PathBuf,
+        /// Where to write the timings JSON.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Also write the aligner's review report (speech not in the text,
+        /// words worth checking) into the timings JSON.
+        #[arg(long)]
+        report: bool,
+        /// Also write each sentence's words with their times.
+        #[arg(long)]
+        words: bool,
+    },
+    /// Write a one-file HTML page that highlights each sentence as the
+    /// audio plays, from timings or straight from the audio.
+    Demo {
+        /// The document: markdown (`.md`, `.markdown`) or plain text
+        /// (anything else, one paragraph per line).
+        doc: PathBuf,
+        /// Its timings JSON. Give this or `--audio`.
+        #[arg(required_unless_present = "audio")]
+        timings: Option<PathBuf>,
+        /// Align this audio file (as `align` does) instead of reading timings.
+        #[arg(long, conflicts_with = "timings")]
+        audio: Option<PathBuf>,
         /// Where to write the page. It refers to the audio by relative path.
         #[arg(short, long)]
         output: PathBuf,
@@ -69,27 +96,81 @@ fn run(cli: Cli) -> Result<(), String> {
             let audio_ref = relative_path(&audio, &parent_dir(&output)?)?;
             let mut timings = timings_from_descript(&markdown, &transcript, &audio_ref);
             summarize(&timings, with_report);
-            if !with_report {
-                timings.report = Default::default();
-            }
-            if !with_words {
-                timings.sentences.iter_mut().for_each(|s| s.words.clear());
-            }
-            write(&output, &timings.to_json())?;
-            Ok(())
+            write_timings(&output, timings_kept(&mut timings, with_report, with_words))
         }
-        Command::Demo { doc, timings: timings_path, output } => {
-            let markdown = read(&doc)?;
-            let timings = Timings::from_json(&read(&timings_path)?).map_err(|e| format!("{}: {e}", timings_path.display()))?;
-            timings
-                .check(&markdown)
-                .map_err(|e| format!("{} doesn't match {}: {e}", timings_path.display(), doc.display()))?;
-            let audio = parent_dir(&timings_path)?.join(&timings.audio);
+        Command::Align { audio, doc, output, report: with_report, words: with_words } => {
+            let markdown = read_doc(&doc)?;
+            let audio_ref = relative_path(&audio, &parent_dir(&output)?)?;
+            let mut timings = align(&markdown, &doc, &audio, &audio_ref)?;
+            summarize(&timings, with_report);
+            write_timings(&output, timings_kept(&mut timings, with_report, with_words))
+        }
+        Command::Demo { doc, timings: timings_path, audio, output } => {
+            let markdown = read_doc(&doc)?;
+            let (timings, audio) = match (timings_path, audio) {
+                (_, Some(audio)) => {
+                    let timings = align(&markdown, &doc, &audio, "")?;
+                    summarize(&timings, false);
+                    (timings, audio)
+                }
+                (Some(timings_path), None) => {
+                    let timings = Timings::from_json(&read(&timings_path)?)
+                        .map_err(|e| format!("{}: {e}", timings_path.display()))?;
+                    timings
+                        .check(&markdown)
+                        .map_err(|e| format!("{} doesn't match {}: {e}", timings_path.display(), doc.display()))?;
+                    let audio = parent_dir(&timings_path)?.join(&timings.audio);
+                    (timings, audio)
+                }
+                (None, None) => unreachable!("clap requires timings or --audio"),
+            };
             let audio_src = relative_path(&audio, &parent_dir(&output)?)?;
-            write(&output, &render_demo(&markdown, &timings, &audio_src))?;
-            Ok(())
+            write(&output, &render_demo(&markdown, &timings, &audio_src))
         }
     }
+}
+
+/// Timings for `markdown` from the audio file at `audio`, normalized with
+/// the built-in table plus `<doc>.overrides.txt` when there is one.
+#[cfg(feature = "align")]
+fn align(markdown: &str, doc: &Path, audio: &Path, audio_ref: &str) -> Result<Timings, String> {
+    use speakable_normalizer::{parse_overrides, Normalizer};
+    let overrides_path = doc.with_extension("overrides.txt");
+    let normalizer = match std::fs::read_to_string(&overrides_path) {
+        Ok(contents) => Normalizer::builtin().with_overrides(parse_overrides(&contents)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Normalizer::builtin(),
+        Err(e) => return Err(format!("{}: {e}", overrides_path.display())),
+    };
+    speakable_align::align_audio(markdown, &normalizer, audio, audio_ref).map_err(|e| format!("{e:#}"))
+}
+
+#[cfg(not(feature = "align"))]
+fn align(_markdown: &str, _doc: &Path, _audio: &Path, _audio_ref: &str) -> Result<Timings, String> {
+    Err("aligning audio needs the `align` feature; rebuild with it".to_string())
+}
+
+/// Drops the report and the words unless asked for.
+fn timings_kept(timings: &mut Timings, with_report: bool, with_words: bool) -> &Timings {
+    if !with_report {
+        timings.report = Default::default();
+    }
+    if !with_words {
+        timings.sentences.iter_mut().for_each(|s| s.words.clear());
+    }
+    timings
+}
+
+fn write_timings(path: &Path, timings: &Timings) -> Result<(), String> {
+    write(path, &timings.to_json())
+}
+
+/// The document as markdown: a `.md`/`.markdown` file as it is, anything
+/// else as plain text, escaped so `*` or `#` in it stays text.
+fn read_doc(path: &Path) -> Result<String, String> {
+    let text = read(path)?;
+    let is_markdown =
+        path.extension().is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"));
+    Ok(if is_markdown { text } else { speakable_markdown::from_plain_text(&text) })
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -108,10 +189,11 @@ fn summarize(t: &Timings, with_report: bool) {
     let r = &t.report;
     let hint = if with_report { "" } else { " (for more detail, run with --report)" };
     eprintln!(
-        "report: {} insertions, {} suspect, {} missing{hint}",
+        "report: {} insertions, {} suspect, {} missing, {} filtered{hint}",
         r.insertions.len(),
         r.suspect.len(),
         r.missing.len(),
+        r.filtered.len(),
     );
 }
 

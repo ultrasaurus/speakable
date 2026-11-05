@@ -1,0 +1,17 @@
+[package]
+name = "speakable-align"
+description = "Sentence and word timings for a markdown document from an audio file of it, by forced alignment"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+metal = ["forced-alignment/metal"]
+cuda = ["forced-alignment/cuda"]
+
+[dependencies]
+anyhow = "1"
+forced-alignment = { git = "https://github.com/ultrasaurus/forced-alignment-rs", tag = "v0.4.0" }
+speakable-normalizer.workspace = true
+speakable-timings.workspace = true
