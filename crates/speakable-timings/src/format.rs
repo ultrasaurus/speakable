@@ -16,7 +16,12 @@ pub const FORMAT_VERSION: &str = "0.1";
 ///   "version": "0.1",
 ///   "audio": "doc.mp3",
 ///   "sentences": [ { "index": 0, "text": "...", "start": 0.42, "end": 3.10 } ],
-///   "report": { "insertions": [], "suspect": [], "missing": [], "filtered": [] }
+///   "report": {
+///     "insertions": [
+///       { "before_sentence": 1, "word_index": 9, "start": 3.1, "end": 3.52, "decoded_text": "um", "score": 0.41 }
+///     ],
+///     "suspect": [], "missing": [], "filtered": [], "threshold": 0.3
+///   }
 /// }
 /// ```
 ///
