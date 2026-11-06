@@ -123,3 +123,24 @@ Timings can also carry a `report` of where the text and the audio differ
   - `score` and `threshold` appear only when an aligner gives them.
 
 The `speakable` CLI writes timings and demo pages from the command line.
+
+## Limits with an ASR transcript
+
+An automatic speech recognition (ASR) transcript, such as a Descript
+export, is mapped with `map_words`. `speakable-align` doesn't use the
+mapper, so these don't apply to its timings.
+
+- **Speech recognition transcript, not checked against the text.** A
+  Descript export has misheard names ("Fannie Bernie" for "Fanny
+  Burney"), spelling variants ("color"), and words joined or split
+  differently ("would've", "mantle piece"). Each comes out `Replaced`.
+- **Repeated words in speech that isn't in the document.** The diff
+  matches a short repeated word ("the", "to", "book") to its first
+  occurrence. When the recording has speech that isn't in the document
+  (a preamble, say) and that speech says a sentence's opening words, the
+  transcript has them twice, and the sentence is timed to the first. To
+  avoid it, delete that speech from the transcript, in Descript or in the
+  export.
+- **Long misrecognitions.** A transcript stretch that is wrong across a
+  sentence boundary leaves the sentences on both sides
+  `BoundaryUncertain`.
