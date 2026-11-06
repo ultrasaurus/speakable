@@ -32,7 +32,8 @@ speakable descript <doc.md> <transcript.json> --audio <audio.mp3> -o <doc.timing
     adds per-document normalizer overrides.
   - The first run downloads the wav2vec2 model (~360MB) from Hugging Face.
   - It aligns the whole audio file at once. Memory grows with the square of
-    its length; up to about 7–8 minutes fits in under 2 GB.
+    its length: up to about 35 minutes fits in under 2 GB, and 60 minutes
+    needs about 7 GB.
 - For both:
   - The JSON names the audio by its path relative to the JSON file.
   - They print how many sentences got times, and how many insertions,

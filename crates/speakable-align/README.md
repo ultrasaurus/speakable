@@ -39,6 +39,7 @@ let timings = speakable_align::align_audio(
 The first run downloads the wav2vec2 model from Hugging Face. Enable the
 `metal` or `cuda` feature to run the model on a GPU.
 
-The aligner keeps tables that grow with the square of the audio's
-length: up to about 7–8 minutes aligns in under 2 GB. For longer
-audio, align in pieces (see forced-alignment-rs's overview).
+The aligner keeps a table that grows with the square of the audio's
+length: up to about 35 minutes aligns in under 2 GB, and 60 minutes
+needs about 7 GB. For longer audio, align in pieces (see
+forced-alignment-rs's overview).

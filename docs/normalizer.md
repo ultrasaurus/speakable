@@ -1573,6 +1573,16 @@ words, such as the words a forced aligner timed:
   "Winchester, MA".
 - To get one entry per source span, merge words whose ranges overlap.
 
+The words must come from the same normalized text. Text spoken in pieces,
+such as one paragraph per line with a label before each, is normalized
+piece by piece, and normalizing it whole gives different words where the
+pieces meet: "(Smith 2001, 53)" at the end of one line reads "fifty
+three" alone but "fifty three," when the next line follows it. So
+`Normalizer::normalize_pieces_with_spans(text, pieces)` normalizes each
+piece (a char range of `text`) on its own, joins them with single spaces,
+and maps back into the whole `text`; text outside the pieces, such as the
+labels, is left out.
+
 ## Three bug categories found while converting passes
 
 Converting all 13 passes from flat-string transforms to chunk-aware ones

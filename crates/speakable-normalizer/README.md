@@ -33,6 +33,10 @@ those words out, and keeps a map from them back to the original text.
   - `source_words(spoken)` maps each spoken word, such as the words an
     aligner timed, to its range in the input. It matches whole words in
     order, so words the aligner dropped are skipped.
+  - `Normalizer::normalize_pieces_with_spans(text, pieces)` normalizes
+    each piece of the text on its own, such as one paragraph per line, and
+    keeps the map back to the whole text. Map words back with it when
+    the audio was made from the pieces.
 - `spoken_word_count(text)` counts the spoken words. It isn't cached: cache
   it yourself, keyed by `Normalizer::fingerprint()` and the text.
 

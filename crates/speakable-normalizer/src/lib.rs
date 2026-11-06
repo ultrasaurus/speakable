@@ -105,6 +105,45 @@ impl Normalizer {
         normalize_with_spans_in(text, &self.map, &self.punctuated)
     }
 
+    /// Normalizes each of `pieces` of `text` on its own and joins the
+    /// results with single spaces, keeping the map back to `text`. Text
+    /// outside the pieces, such as a label at the start of each line, is
+    /// left out.
+    ///
+    /// For text that was spoken in pieces, such as one paragraph per line:
+    /// normalizing the whole text at once can differ where the pieces meet
+    /// (a number at the end of one gets the next one's punctuation), so
+    /// words timed against the pieces' spoken form are mapped back with
+    /// this instead.
+    ///
+    /// `pieces` are char ranges of `text`, in order and not overlapping.
+    ///
+    /// # Panics
+    ///
+    /// If a piece reaches past the end of `text`.
+    pub fn normalize_pieces_with_spans(&self, text: &str, pieces: &[std::ops::Range<usize>]) -> NormalizedText {
+        let chars: Vec<char> = text.chars().collect();
+        let mut out = NormalizedText { text: String::new(), spans: Vec::new() };
+        for piece in pieces {
+            let part: String = chars[piece.clone()].iter().collect();
+            let normalized = self.normalize_with_spans(&part);
+            if normalized.text.trim().is_empty() {
+                continue;
+            }
+            if !out.text.is_empty() {
+                // The separator came from no source text.
+                out.text.push(' ');
+                out.spans.push(Spanned { text: " ".into(), src: piece.start..piece.start });
+            }
+            out.text.push_str(&normalized.text);
+            out.spans.extend(normalized.spans.into_iter().map(|s| Spanned {
+                text: s.text,
+                src: s.src.start + piece.start..s.src.end + piece.start,
+            }));
+        }
+        out
+    }
+
     /// See the free function [`spoken_word_count`].
     pub fn spoken_word_count(&self, text: &str) -> usize {
         self.normalize(text).split_whitespace().count()
@@ -7093,6 +7132,52 @@ mod tests {
         assert_eq!(source_texts(original, &["deeper", "I", "have"]), some(&["deeper", "I", "have"]));
         let original = "I could beat my mates at examination time.";
         assert_eq!(source_texts(original, &["my", "at", "examination"]), some(&["my", "at", "examination"]));
+    }
+
+    use std::ops::Range;
+
+    /// Each line's char range after its "Label: " prefix.
+    fn after_labels(text: &str) -> Vec<Range<usize>> {
+        let mut pieces = Vec::new();
+        let mut start = 0;
+        for line in text.split('\n') {
+            let len = line.chars().count();
+            let label = line.find(": ").map_or(0, |i| line[..i + 2].chars().count());
+            pieces.push(start + label..start + len);
+            start += len + 1;
+        }
+        pieces
+    }
+
+    #[test]
+    fn pieces_are_normalized_on_their_own_and_joined() {
+        let text = "Reader: (Smith 2001, 53)\nReader: This kind of 1 thing.";
+        let pieces = after_labels(text);
+        let normalized = Normalizer::builtin().normalize_pieces_with_spans(text, &pieces);
+        let chars: Vec<char> = text.chars().collect();
+        let expected: Vec<String> =
+            pieces.iter().map(|p| normalize(&chars[p.clone()].iter().collect::<String>())).collect();
+        assert_eq!(normalized.text, expected.join(" "));
+        // Normalized whole, the line break would read differently.
+        assert_ne!(normalize_with_spans(text).text.replace("Reader: ", ""), normalized.text);
+
+        let slice = |r: Option<Range<usize>>| r.map(|r| chars[r].iter().collect::<String>());
+        let spoken: Vec<&str> = normalized.text.split_whitespace().collect();
+        let mapped: Vec<Option<String>> = normalized.source_words(&spoken).into_iter().map(slice).collect();
+        let three = spoken.iter().position(|w| w.starts_with("three")).unwrap();
+        assert_eq!(mapped[three].as_deref(), Some("53"));
+        assert_eq!(mapped[three + 1].as_deref(), Some("This"));
+        assert_eq!(mapped.last().unwrap().as_deref(), Some("thing."));
+    }
+
+    #[test]
+    fn empty_pieces_add_nothing() {
+        let text = "one\n\n \ntwo";
+        let normalized = Normalizer::builtin().normalize_pieces_with_spans(text, &after_labels(text));
+        assert_eq!(normalized.text, format!("{} {}", normalize("one"), normalize("two")));
+        let chars: Vec<char> = text.chars().collect();
+        let two = normalized.source_words(&["one", "two"])[1].clone().unwrap();
+        assert_eq!(chars[two].iter().collect::<String>(), "two");
     }
 
     #[test]
