@@ -3199,7 +3199,7 @@ dependencies = [
 
 [[package]]
 name = "speakable"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "speakable-align",
@@ -3210,7 +3210,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-align"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "forced-alignment",
@@ -3220,7 +3220,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-markdown"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "math-to-speech",
  "pulldown-cmark",
@@ -3229,7 +3229,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-normalizer"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "num2words",
  "roman",
@@ -3238,7 +3238,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-splitter"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "roman",
  "serde",
@@ -3247,7 +3247,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-timings"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
