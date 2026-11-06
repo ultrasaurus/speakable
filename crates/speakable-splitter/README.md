@@ -33,6 +33,9 @@ assert_eq!(sentences.len(), 3);
 assert!(sentences[1].paragraph_end);
 ```
 
+Each step of the split, and why it's there, is in
+[docs/splitter.md](../../docs/splitter.md).
+
 ## Footnote and citation markers
 
 A marker is wrapped in `[...]`, `(...)` or `*...*`, glued to the sentence or

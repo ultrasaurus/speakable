@@ -61,6 +61,12 @@ cargo nextest run
 The workspace sets `opt-level = 3` for `speakable-normalizer` in dev
 builds: unoptimized, it runs about 9x slower.
 
+## Docs
+
+[`docs/`](docs/) explains the two crates whose rules are hardest to see
+from the API: [normalizer.md](docs/normalizer.md) (every normalization
+pass) and [splitter.md](docs/splitter.md) (every splitting step).
+
 ## Samples
 
 [`samples/`](samples/) holds recordings with their text, for trying

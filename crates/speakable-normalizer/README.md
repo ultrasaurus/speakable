@@ -33,6 +33,9 @@ those words out, and keeps a map from them back to the original text.
 - `spoken_word_count(text)` counts the spoken words. It isn't cached: cache
   it yourself, keyed by `Normalizer::fingerprint()` and the text.
 
+Every pass, in order and with examples, is in
+[docs/normalizer.md](../../docs/normalizer.md).
+
 ## Override tables
 
 An override table maps a word or phrase to its spoken form. It's
