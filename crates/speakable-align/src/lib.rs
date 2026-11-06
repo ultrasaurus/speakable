@@ -16,7 +16,7 @@ use forced_alignment::AlignOptions;
 use std::ops::Range;
 use std::path::Path;
 
-use speakable_normalizer::{NormalizedText, Normalizer};
+use speakable_normalizer::Normalizer;
 use speakable_timings::{
     document_sentences, words as text_words, FilteredWord, Insertion, InsertionAt, Report, SentenceTiming,
     SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
@@ -56,17 +56,13 @@ pub fn spoken_sentences(markdown: &str, normalizer: &Normalizer) -> Vec<SpokenSe
 
 fn spoken_sentence(text: String, normalizer: &Normalizer) -> SpokenSentence {
     let normalized = normalizer.normalize_with_spans(&text);
-    let source = source_chars(&normalized);
     // Each text word's char range in `text`.
     let text_ranges: Vec<Range<usize>> = text_words(&text).into_iter().map(|w| char_range(&text, w)).collect();
     let spoken: Vec<&str> = normalized.text.split_whitespace().collect();
-    let sources = spoken
-        .iter()
-        .map(|w| {
-            let r = char_range(&normalized.text, w);
-            let from = source[r].iter().fold(None::<Range<usize>>, |acc, c| {
-                Some(acc.map_or(c.clone(), |a| a.start.min(c.start)..a.end.max(c.end)))
-            });
+    let sources = normalized
+        .source_words(&spoken)
+        .into_iter()
+        .map(|from| {
             let overlapping: Vec<usize> = match from {
                 None => vec![],
                 Some(from) => {
@@ -85,27 +81,6 @@ fn spoken_sentence(text: String, normalizer: &Normalizer) -> SpokenSentence {
         sources,
         text,
     }
-}
-
-/// For each char of the normalized text, the source chars it came from.
-/// A raw chunk (untouched prose) keeps the source's chars one for one, so
-/// its chars map exactly; a transformed chunk ("1945" → "nineteen forty
-/// five") maps every char to the chunk's whole source.
-fn source_chars(normalized: &NormalizedText) -> Vec<Range<usize>> {
-    let mut out = Vec::new();
-    let mut pos = 0;
-    for (chunk, raw) in normalized.chunks() {
-        let len = chunk.chars().count();
-        if len == 0 {
-            continue;
-        }
-        let src = normalized.source_range(pos..pos + 1).unwrap_or(0..0);
-        for k in 0..len {
-            out.push(if raw { src.start + k..src.start + k + 1 } else { src.clone() });
-        }
-        pos += len;
-    }
-    out
 }
 
 /// The char range of `part`, a slice of `whole`.

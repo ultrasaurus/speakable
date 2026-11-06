@@ -223,6 +223,56 @@ impl NormalizedText {
     pub fn chunks(&self) -> impl Iterator<Item = (&str, bool)> {
         self.spans.iter().map(|s| (s.text.as_str(), is_raw(s)))
     }
+
+    /// Each spoken word's char range in the original input, or `None` for a
+    /// word not found in `text`: for mapping the words a forced aligner
+    /// timed back to the text they were said for.
+    ///
+    /// Words are found in order, by a case-insensitive search of `text`
+    /// that starts where the previous found word ended. So a word missing
+    /// from `spoken` (one the aligner dropped, say) is skipped over, and a
+    /// word not found leaves the search where it was.
+    ///
+    /// A word's range is the union of its chars' sources. A char of a raw
+    /// chunk maps to its own source char, so ordinary prose maps exactly; a
+    /// char of a transformed chunk maps to the chunk's whole source. So
+    /// every word of an expansion ("nineteen", "forty", "five" for "1945")
+    /// gets the same range, and a caller wanting one entry per source span
+    /// merges words whose ranges overlap.
+    pub fn source_words<S: AsRef<str>>(&self, spoken: &[S]) -> Vec<Option<std::ops::Range<usize>>> {
+        let chars: Vec<char> = self.text.chars().collect();
+        let sources = self.char_sources();
+        let mut cursor = 0;
+        spoken
+            .iter()
+            .map(|word| {
+                let target: Vec<char> = word.as_ref().chars().collect();
+                if target.is_empty() || target.len() > chars.len() {
+                    return None;
+                }
+                let start = (cursor..=chars.len() - target.len()).find(|&i| {
+                    chars[i..i + target.len()].iter().zip(&target).all(|(a, b)| a.to_lowercase().eq(b.to_lowercase()))
+                })?;
+                let end = start + target.len();
+                cursor = end;
+                sources[start..end].iter().cloned().reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+            })
+            .collect()
+    }
+
+    /// For each char of `text`, the source chars it came from: its own char
+    /// in a raw chunk, the chunk's whole source in a transformed one.
+    fn char_sources(&self) -> Vec<std::ops::Range<usize>> {
+        let mut out = Vec::with_capacity(self.text.len());
+        for chunk in &self.spans {
+            let raw = is_raw(chunk);
+            for k in 0..chunk.text.chars().count() {
+                let start = chunk.src.start;
+                out.push(if raw { start + k..start + k + 1 } else { chunk.src.clone() });
+            }
+        }
+        out
+    }
 }
 
 /// Same normalization as `normalize`, but keeps the source-span mapping
@@ -6954,5 +7004,81 @@ mod tests {
         // for them — confirm they're unaffected.
         assert_eq!(normalize("it's fine"), "It's fine");
         assert_eq!(normalize("don't go"), "Don't go");
+    }
+
+    // -----------------------------------------------------------------------
+    // source_words
+    // -----------------------------------------------------------------------
+
+    /// The original text each of `spoken` maps back to, or `None`.
+    fn source_texts(original: &str, spoken: &[&str]) -> Vec<Option<String>> {
+        let chars: Vec<char> = original.chars().collect();
+        normalize_with_spans(original)
+            .source_words(spoken)
+            .into_iter()
+            .map(|r| r.map(|r| chars[r].iter().collect()))
+            .collect()
+    }
+
+    fn some(words: &[&str]) -> Vec<Option<String>> {
+        words.iter().map(|w| Some(w.to_string())).collect()
+    }
+
+    #[test]
+    fn source_words_map_prose_word_for_word() {
+        let original = "Often these days, we make things.";
+        let spoken: Vec<&str> = original.split_whitespace().collect();
+        assert_eq!(source_texts(original, &spoken), some(&spoken));
+    }
+
+    #[test]
+    fn source_words_give_every_word_of_an_expansion_its_whole_source() {
+        let original = "see Item 71279 in the report";
+        assert_eq!(normalize(original), "See Item seven one two seven nine in the report");
+        let spoken = ["see", "Item", "seven", "one", "two", "seven", "nine", "in", "the", "report"];
+        let item = "Item 71279";
+        assert_eq!(
+            source_texts(original, &spoken),
+            some(&["see", item, item, item, item, item, item, "in", "the", "report"])
+        );
+    }
+
+    #[test]
+    fn source_words_cover_a_word_straddling_chunks() {
+        // "Winchester," is the raw "Winchester" plus the start of the
+        // expanded ", Massachusetts", so it takes both sources; "six," is
+        // the end of the expanded year range plus a raw comma.
+        let original = "Later, I lived in Winchester, MA in 1973-76, then we moved.";
+        assert_eq!(
+            normalize(original),
+            "Later, I lived in Winchester, Massachusetts in nineteen seventy three to seventy six, then we moved."
+        );
+        let spoken = [
+            "Later,", "I", "lived", "in", "Winchester,", "Massachusetts", "in", "nineteen", "seventy", "three", "to",
+            "seventy", "six,", "then", "we", "moved.",
+        ];
+        let years = "1973-76";
+        assert_eq!(
+            source_texts(original, &spoken),
+            some(&[
+                "Later,", "I", "lived", "in", "Winchester, MA", ", MA", "in", years, years, years, years, years,
+                "1973-76,", "then", "we", "moved.",
+            ])
+        );
+    }
+
+    #[test]
+    fn source_words_skip_a_dropped_word() {
+        let original = "alpha beta gamma";
+        assert_eq!(source_texts(original, &["alpha", "gamma"]), some(&["alpha", "gamma"]));
+    }
+
+    #[test]
+    fn source_words_not_found_leave_the_search_in_place() {
+        let original = "alpha beta gamma";
+        assert_eq!(
+            source_texts(original, &["ALPHA", "delta", "", "beta"]),
+            vec![Some("alpha".into()), None, None, Some("beta".into())]
+        );
     }
 }
