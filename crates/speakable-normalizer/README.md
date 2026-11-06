@@ -31,8 +31,8 @@ those words out, and keeps a map from them back to the original text.
   back to ranges of the input, for mapping forced-alignment word times
   onto the original sentence.
   - `source_words(spoken)` maps each spoken word, such as the words an
-    aligner timed, to its range in the input. It searches for the words
-    in order, so words the aligner dropped are skipped.
+    aligner timed, to its range in the input. It matches whole words in
+    order, so words the aligner dropped are skipped.
 - `spoken_word_count(text)` counts the spoken words. It isn't cached: cache
   it yourself, keyed by `Normalizer::fingerprint()` and the text.
 

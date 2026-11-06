@@ -1561,8 +1561,10 @@ not as six words with six positions.
 `NormalizedText::source_words(spoken)` does that mapping for a list of
 words, such as the words a forced aligner timed:
 
-- It finds each word by a case-insensitive search that starts where the
-  previous word ended, so words the aligner dropped are skipped.
+- It matches each word, case-insensitively, against the whole
+  whitespace-separated words of the normalized text, searching forward
+  from the previous match. Words the aligner dropped are skipped, and a
+  short word never matches inside a longer one ("I" inside "detail").
 - A word's range is the union of its chars' sources. A raw chunk maps
   char for char, so prose maps exactly; a transformed chunk maps every
   char to its whole source.

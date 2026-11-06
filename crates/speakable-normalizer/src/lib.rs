@@ -228,10 +228,12 @@ impl NormalizedText {
     /// word not found in `text`: for mapping the words a forced aligner
     /// timed back to the text they were said for.
     ///
-    /// Words are found in order, by a case-insensitive search of `text`
-    /// that starts where the previous found word ended. So a word missing
-    /// from `spoken` (one the aligner dropped, say) is skipped over, and a
-    /// word not found leaves the search where it was.
+    /// Each word is matched, case-insensitively, against the whole
+    /// whitespace-separated words of `text`, searching forward from the
+    /// previous found word. So a word missing from `spoken` (one the
+    /// aligner dropped, say) is skipped over, a word not found leaves the
+    /// search where it was, and a short word never matches inside a longer
+    /// one ("I" inside "detail").
     ///
     /// A word's range is the union of its chars' sources. A char of a raw
     /// chunk maps to its own source char, so ordinary prose maps exactly; a
@@ -242,20 +244,30 @@ impl NormalizedText {
     pub fn source_words<S: AsRef<str>>(&self, spoken: &[S]) -> Vec<Option<std::ops::Range<usize>>> {
         let chars: Vec<char> = self.text.chars().collect();
         let sources = self.char_sources();
-        let mut cursor = 0;
+        // Each whitespace-separated word of `text`, as a char range.
+        let mut words: Vec<std::ops::Range<usize>> = Vec::new();
+        let mut word_start = None;
+        for (i, c) in chars.iter().chain(std::iter::once(&' ')).enumerate() {
+            match (c.is_whitespace(), word_start) {
+                (true, Some(s)) => {
+                    words.push(s..i);
+                    word_start = None;
+                }
+                (false, None) => word_start = Some(i),
+                _ => {}
+            }
+        }
+        let same = |a: &[char], b: &[char]| {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.to_lowercase().eq(y.to_lowercase()))
+        };
+        let mut next = 0;
         spoken
             .iter()
             .map(|word| {
                 let target: Vec<char> = word.as_ref().chars().collect();
-                if target.is_empty() || target.len() > chars.len() {
-                    return None;
-                }
-                let start = (cursor..=chars.len() - target.len()).find(|&i| {
-                    chars[i..i + target.len()].iter().zip(&target).all(|(a, b)| a.to_lowercase().eq(b.to_lowercase()))
-                })?;
-                let end = start + target.len();
-                cursor = end;
-                sources[start..end].iter().cloned().reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+                let k = (next..words.len()).find(|&k| same(&chars[words[k].clone()], &target))?;
+                next = k + 1;
+                sources[words[k].clone()].iter().cloned().reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
             })
             .collect()
     }
@@ -7071,6 +7083,16 @@ mod tests {
     fn source_words_skip_a_dropped_word() {
         let original = "alpha beta gamma";
         assert_eq!(source_texts(original, &["alpha", "gamma"]), some(&["alpha", "gamma"]));
+    }
+
+    #[test]
+    fn source_words_match_whole_words_after_a_dropped_word() {
+        // With "detail," dropped, "I" must not match the "i" inside
+        // "detail", nor "at" the "at" inside "mates".
+        let original = "Venturing now into deeper detail, I have studied.";
+        assert_eq!(source_texts(original, &["deeper", "I", "have"]), some(&["deeper", "I", "have"]));
+        let original = "I could beat my mates at examination time.";
+        assert_eq!(source_texts(original, &["my", "at", "examination"]), some(&["my", "at", "examination"]));
     }
 
     #[test]
