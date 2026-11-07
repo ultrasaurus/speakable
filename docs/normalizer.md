@@ -378,13 +378,22 @@ match in context:
 Some unit abbreviations get the same number-only treatment from a hardcoded
 table (`NUMBER_UNITS`) rather than the override table. A word-only override
 key would match every occurrence, so `ms` would also rewrite the title "Ms".
-They are matched case-insensitively, only right after a number that ends in
+They are matched only right after a number that ends in
 a digit (decimals and comma groups included), glued or spaced, and must not
 be followed by another letter or digit. Each entry names its singular and
 plural word; the singular is used only when the number is a bare `1`, and
 the plural can be irregular (`ft` → `foot`/`feet`). A unit that also has a
 word override (`dB` → `decibels`) still gets that override when no number
 comes before it.
+
+Most entries match case-insensitively. Byte and bit units are
+case-sensitive, because a capital `B` means bytes and a lowercase `b` bits:
+`MB` is megabytes, `Mb` megabits. All-lowercase `kb`/`mb`/`gb` are the
+exception and stay bytes, since casual text mostly uses them that way.
+`kbps` is still bits, since the `bps` spelling is only used for bit rates. The table also has whole rate keys (`Mb/s`, `MB/s`, `Mbps` and their
+kilo/giga forms), listed before the bare units so `Mb` doesn't match first
+and leave `/s` behind. Pass 8b can't add the `per second` there, because it
+only sees an untouched word before the slash.
 
 | Input | Output |
 |-------|--------|
@@ -393,6 +402,8 @@ comes before it.
 | `a 1.5 ms pulse` | `a 1.5 milliseconds pulse` |
 | `1 ft tall, 6 ft deep` | `1 foot tall, 6 feet deep` |
 | `a 1 dB step`, `in dB` | `a 1 decibel step`, `in decibels` |
+| `5 MB`, `5 Mb` | `5 megabytes`, `5 megabits` |
+| `2 Mb/s`, `1 Mbps` | `2 megabits per second`, `1 megabit per second` |
 | `Ms Smith said` | `Ms Smith said` |
 | `5 msg`, `40 dBA` | `5 msg`, `40 dBA` |
 
@@ -1230,7 +1241,7 @@ one length range.
 Expands a `word/unit` rate expression to `word per unit` — only when the
 word right after the `/` is one of a fixed table of rate units
 (case-insensitive, singular or plural, always mapped to a singular output):
-`sec`/`secs` → `second`, `min`/`mins` → `minute`, `hr`/`hrs` → `hour`, and
+`s`/`sec`/`secs` → `second`, `min`/`mins` → `minute`, `hr`/`hrs` → `hour`, and
 `day`/`week`/`month`/`year`/`decade` (already full words, just needing
 `per` inserted) with their plurals.
 
@@ -1240,6 +1251,7 @@ word right after the `/` is one of a fixed table of rate units
 | `cycles/min` | `cycles per minute` |
 | `bands/decade` | `bands per decade` |
 | `samples / sec` | `samples per second` |
+| `frames/s` | `frames per second` |
 | `events/hrs` | `events per hour` |
 | `and/or` | `and/or` *(unchanged — "or" isn't a rate unit)* |
 | `his/her` | `his/her` *(unchanged)* |
@@ -1264,8 +1276,10 @@ alphabetic word (not just a word boundary) immediately before the `/`:
 - A DOI (`"10.1016/j.ijpsycho.2005.10.025"`) — the character right before
   the `/` is a digit, not a letter, so no left word is ever found there.
 - Phonetic slash notation (`"the fricative /s/"`) — nothing but
-  whitespace precedes the first `/`, and the bare letter `"s"` isn't a
-  rate unit for the second, so neither slash matches.
+  whitespace precedes the first `/`, and nothing follows the second
+  slash, so neither slash matches. The unit `s` also only counts with the
+  slash glued on both sides (`frames/s`), so `"fricative /s"` never
+  matches with the space.
 
 A full URL (`"http://dx.doi.org/10.1111/ene.12296"`) is out of reach for
 a different reason: Pass 0 replaces the whole URL with `link` before any

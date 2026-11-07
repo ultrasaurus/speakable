@@ -3058,8 +3058,8 @@ fn apply_punctuated_overrides_spanned(chunks: Vec<Spanned>, punctuated: &[Punctu
     for key in punctuated {
         chunks = over_raw_runs(chunks, |run| apply_one_override_run(run, &key.matched, &key.replacement, key.case_sensitive, None));
     }
-    for (from, singular, plural) in NUMBER_UNITS {
-        chunks = over_raw_runs(chunks, |run| apply_one_override_run(run, from, singular, false, Some(plural)));
+    for &(from, singular, plural, case_sensitive) in NUMBER_UNITS {
+        chunks = over_raw_runs(chunks, |run| apply_one_override_run(run, from, singular, case_sensitive, Some(plural)));
     }
     chunks
 }
@@ -3084,29 +3084,61 @@ fn over_raw_runs(chunks: Vec<Spanned>, f: impl Fn(&[Spanned]) -> Vec<Spanned>) -
 }
 
 /// Unit abbreviations that are only expanded directly after a number, as
-/// (abbreviation, singular word, plural word). Word-only override keys
-/// can't be scoped that way (they match every occurrence, so `ms` would
-/// also rewrite "Ms"), so these ride the same number-lookback as "in." in
-/// Pass 1 instead.
+/// (abbreviation, singular word, plural word, case-sensitive). Word-only
+/// override keys can't be scoped that way (they match every occurrence, so
+/// `ms` would also rewrite "Ms"), so these ride the same number-lookback as
+/// "in." in Pass 1 instead.
+///
+/// Byte and bit units are case-sensitive, since a capital `B` is bytes and
+/// a lowercase `b` is bits (`MB` vs `Mb`). All-lowercase `kb`/`mb`/`gb`
+/// are the exception and stay bytes, since casual text mostly uses them
+/// for kilobytes/megabytes/gigabytes. `kbps` is still bits: the "bps"
+/// spelling is only used for bit rates.
+///
+/// Entries are applied in order, so a rate key (`Mb/s`) must come before
+/// the bare unit (`Mb`), which would otherwise match first and leave `/s`.
+/// Pass 8b can't finish the job: it only sees an untouched word before the
+/// slash, not one this pass already replaced.
 ///
 /// Some of these also have a word override in the built-in table ("dB" ->
 /// "decibels"), which still speaks the abbreviation when no number comes
 /// before it ("measured in dB").
-const NUMBER_UNITS: &[(&str, &str, &str)] = &[
-    ("ms", "millisecond", "milliseconds"),
-    ("µs", "microsecond", "microseconds"),
+const NUMBER_UNITS: &[(&str, &str, &str, bool)] = &[
+    ("ms", "millisecond", "milliseconds", false),
+    ("µs", "microsecond", "microseconds", false),
     // Greek small mu (U+03BC), as opposed to the micro sign (U+00B5) above.
-    ("μs", "microsecond", "microseconds"),
-    ("ns", "nanosecond", "nanoseconds"),
-    ("kb", "kilobyte", "kilobytes"),
-    ("mb", "megabyte", "megabytes"),
-    ("gb", "gigabyte", "gigabytes"),
-    ("db", "decibel", "decibels"),
-    ("cm", "centimeter", "centimeters"),
-    ("cm2", "square centimeter", "square centimeters"),
-    ("ft", "foot", "feet"),
-    ("lb", "pound", "pounds"),
-    ("lbs", "pound", "pounds"),
+    ("μs", "microsecond", "microseconds", false),
+    ("ns", "nanosecond", "nanoseconds", false),
+    ("kb/s", "kilobyte per second", "kilobytes per second", true),
+    ("Kb/s", "kilobit per second", "kilobits per second", true),
+    ("kB/s", "kilobyte per second", "kilobytes per second", true),
+    ("KB/s", "kilobyte per second", "kilobytes per second", true),
+    ("Mb/s", "megabit per second", "megabits per second", true),
+    ("MB/s", "megabyte per second", "megabytes per second", true),
+    ("mb/s", "megabyte per second", "megabytes per second", true),
+    ("Gb/s", "gigabit per second", "gigabits per second", true),
+    ("GB/s", "gigabyte per second", "gigabytes per second", true),
+    ("gb/s", "gigabyte per second", "gigabytes per second", true),
+    ("kbps", "kilobit per second", "kilobits per second", true),
+    ("Kbps", "kilobit per second", "kilobits per second", true),
+    ("Mbps", "megabit per second", "megabits per second", true),
+    ("Gbps", "gigabit per second", "gigabits per second", true),
+    ("kb", "kilobyte", "kilobytes", true),
+    ("Kb", "kilobit", "kilobits", true),
+    ("kB", "kilobyte", "kilobytes", true),
+    ("KB", "kilobyte", "kilobytes", true),
+    ("Mb", "megabit", "megabits", true),
+    ("MB", "megabyte", "megabytes", true),
+    ("mb", "megabyte", "megabytes", true),
+    ("Gb", "gigabit", "gigabits", true),
+    ("GB", "gigabyte", "gigabytes", true),
+    ("gb", "gigabyte", "gigabytes", true),
+    ("db", "decibel", "decibels", false),
+    ("cm", "centimeter", "centimeters", false),
+    ("cm2", "square centimeter", "square centimeters", false),
+    ("ft", "foot", "feet", false),
+    ("lb", "pound", "pounds", false),
+    ("lbs", "pound", "pounds", false),
 ];
 
 /// `unit_plural` is the plural word for a `NUMBER_UNITS` key, `None` for
@@ -4136,7 +4168,7 @@ fn expand_journal_links_chunk(chunk: &Spanned) -> Vec<Spanned> {
 /// takes a singular unit regardless of how the source wrote it.
 fn rate_unit_full_name(word: &str) -> Option<&'static str> {
     Some(match word.to_ascii_lowercase().as_str() {
-        "sec" | "secs" => "second",
+        "s" | "sec" | "secs" => "second",
         "min" | "mins" => "minute",
         "hr" | "hrs" => "hour",
         "day" | "days" => "day",
@@ -4201,6 +4233,10 @@ fn match_rate_unit(chars: &[char], word_start: usize) -> Option<RateMatch> {
 
     let unit_word: String = chars[unit_start..unit_end].iter().collect();
     let unit_full = rate_unit_full_name(&unit_word)?;
+    // A bare "s" only counts with the slash glued on both sides
+    // ("frames/s"): with a space before it, "the fricative /s/" is phonetic
+    // notation, not a rate.
+    if unit_word.eq_ignore_ascii_case("s") && unit_start - word_end != 1 { return None; }
     let left_word: String = chars[word_start..word_end].iter().collect();
 
     Some(RateMatch { word_start, unit_end, left_word, unit_full })
@@ -5714,6 +5750,14 @@ mod tests {
         assert_eq!(apply("a 1,000 ms pulse"), "a 1,000 milliseconds pulse");
         assert_eq!(apply("5 µs and 5 μs"), "5 microseconds and 5 microseconds");
         assert_eq!(apply("3 ns, 4 KB, 5 MB, 6 GB"), "3 nanoseconds, 4 kilobytes, 5 megabytes, 6 gigabytes");
+        // Lowercase b is bits, capital B bytes; all-lowercase kb/mb/gb stay bytes.
+        assert_eq!(apply("4 Kb, 5 Mb, 6 Gb"), "4 kilobits, 5 megabits, 6 gigabits");
+        assert_eq!(apply("4 kb, 5 mb, 6 gb"), "4 kilobytes, 5 megabytes, 6 gigabytes");
+        assert_eq!(apply("4 kb/s"), "4 kilobytes per second");
+        // Rates: the slash form is matched whole, before the bare unit.
+        assert_eq!(apply("2 Mb/s, 3 MB/s, 1 Gb/s"), "2 megabits per second, 3 megabytes per second, 1 gigabit per second");
+        assert_eq!(apply("56 kbps, 1 Mbps, 10Gbps"), "56 kilobits per second, 1 megabit per second, 10 gigabits per second");
+        assert_eq!(normalize("It runs at 2 Mb/s."), "It runs at two megabits per second.");
         // No number directly before: left alone, including the title "Ms".
         assert_eq!(apply("Ms Smith said ms"), "Ms Smith said ms");
         assert_eq!(apply("see 3. ms"), "see 3. ms");
@@ -5763,6 +5807,11 @@ mod tests {
         assert_eq!(expand_rate_units("samples / sec"), "samples per second");
         // Plural source spelling still maps to a singular unit.
         assert_eq!(expand_rate_units("events/hrs"), "events per hour");
+        assert_eq!(expand_rate_units("frames/s"), "frames per second");
+        // A longer word after the slash isn't the "s" unit.
+        assert_eq!(expand_rate_units("frames/sample"), "frames/sample");
+        // Bare "s" needs the slash glued on both sides.
+        assert_eq!(expand_rate_units("frames / s"), "frames / s");
     }
 
     #[test]
