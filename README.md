@@ -58,6 +58,13 @@ package name from this repo, at the same tag:
 cargo nextest run
 ```
 
+A pre-commit hook checks `cargo fmt` and `cargo clippy` (warnings fail it).
+Turn it on once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 The workspace sets `opt-level = 3` for `speakable-normalizer` in dev
 builds: unoptimized, it runs about 9x slower.
 

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Checks formatting and clippy before each commit. Turn on once per clone:
+#   git config core.hooksPath .githooks
+# Skip for one commit with `git commit --no-verify`.
+#
+# Checks the working tree, so unstaged edits count too.
+
+if ! cargo fmt --all --check >/dev/null; then
+    echo "pre-commit: code isn't formatted; run \`cargo fmt --all\`" >&2
+    exit 1
+fi
+
+if ! cargo clippy --workspace --all-targets --quiet -- -D warnings; then
+    echo "pre-commit: clippy found problems (above)" >&2
+    exit 1
+fi
