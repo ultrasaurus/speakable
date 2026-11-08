@@ -47,7 +47,10 @@ static BOOKS: &[Book] = &[
     book!("Job", ["Job.", "Jb."]),
     book!("Proverbs", ["Prov.", "Pro.", "Prv.", "Pr."]),
     book!("Ecclesiastes", ["Eccles.", "Eccl.", "Ecc.", "Ec."]),
-    book!("Song of Solomon", ["Song.", "SS.", "Song of Sol.", "Canticles."]),
+    book!(
+        "Song of Solomon",
+        ["Song.", "SS.", "Song of Sol.", "Canticles."]
+    ),
     book!("Isaiah", ["Isa.", "Is."]),
     book!("Jeremiah", ["Jer.", "Je.", "Jr."]),
     book!("Lamentations", ["Lam.", "La."]),
@@ -94,7 +97,12 @@ static BOOKS: &[Book] = &[
     book!("Revelation", ["Rev.", "Re.", "Rv."]),
     // Psalms: singular "Psalm" spoken form for a single-chapter reference,
     // no "chapter" word (e.g. "Psalm seventy three verse twenty one").
-    Book { full_name: "Psalm", spoken_name: "Psalm", abbrevs: &["Ps.", "Psa.", "Psalm.", "Psalms."], psalms_style: true },
+    Book {
+        full_name: "Psalm",
+        spoken_name: "Psalm",
+        abbrevs: &["Ps.", "Psa.", "Psalm.", "Psalms."],
+        psalms_style: true,
+    },
 ];
 
 fn is_word_char(c: char) -> bool {
@@ -111,20 +119,27 @@ fn is_word_char(c: char) -> bool {
 /// prefix like "Ps." doesn't shadow "Psalms." — not that it matters here
 /// since both map to the same book, but it keeps the rule general.
 pub fn match_book(chars: &[char], i: usize) -> Option<(&'static str, bool, usize)> {
-    if i > 0 && is_word_char(chars[i - 1]) { return None; }
+    if i > 0 && is_word_char(chars[i - 1]) {
+        return None;
+    }
 
     let mut best: Option<(&'static str, bool, usize)> = None;
     for book in BOOKS {
         for candidate in std::iter::once(book.full_name).chain(book.abbrevs.iter().copied()) {
             let cand_chars: Vec<char> = candidate.chars().collect();
             let len = cand_chars.len();
-            if i + len > chars.len() { continue; }
-            if chars[i..i + len] != cand_chars[..] { continue; }
+            if i + len > chars.len() {
+                continue;
+            }
+            if chars[i..i + len] != cand_chars[..] {
+                continue;
+            }
             // Word boundary after the match — but a trailing "." in an
             // abbreviation is itself the boundary character, so only check
             // past it when the candidate doesn't already end in one.
-            if !candidate.ends_with('.')
-                && i + len < chars.len() && is_word_char(chars[i + len]) { continue; }
+            if !candidate.ends_with('.') && i + len < chars.len() && is_word_char(chars[i + len]) {
+                continue;
+            }
             if best.map(|(_, _, best_len)| len > best_len).unwrap_or(true) {
                 best = Some((book.spoken_name, book.psalms_style, len));
             }
@@ -164,7 +179,10 @@ mod tests {
 
     #[test]
     fn matches_numbered_book() {
-        assert_eq!(try_match("1 Cor. 13:4"), Some(("First Corinthians", false, 6)));
+        assert_eq!(
+            try_match("1 Cor. 13:4"),
+            Some(("First Corinthians", false, 6))
+        );
     }
 
     #[test]

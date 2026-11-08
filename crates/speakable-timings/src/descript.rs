@@ -46,7 +46,11 @@ impl DescriptTranscript {
             let step = (seg.end_time - seg.start_time) / parts.len() as f64;
             for (i, part) in parts.iter().enumerate() {
                 let start = seg.start_time + step * i as f64;
-                let end = if i + 1 == parts.len() { seg.end_time } else { start + step };
+                let end = if i + 1 == parts.len() {
+                    seg.end_time
+                } else {
+                    start + step
+                };
                 out.push(TimedWord::new(*part, start, end));
             }
         }

@@ -18,8 +18,8 @@ use std::path::Path;
 
 use speakable_normalizer::Normalizer;
 use speakable_timings::{
-    document_sentences, words as text_words, FilteredWord, Insertion, InsertionAt, Report, SentenceTiming,
-    SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
+    document_sentences, words as text_words, FilteredWord, Insertion, InsertionAt, Report,
+    SentenceTiming, SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
 };
 
 /// One sentence of the document: its plain text, as `Timings` records it,
@@ -41,23 +41,39 @@ pub struct SpokenSentence {
 /// Timings for `markdown` from the audio file at `audio_path` (mp3 or wav),
 /// with every sentence's words and the full report. `audio_ref` is the path
 /// the timings store for that file: relative to where the timings JSON goes.
-pub fn align_audio(markdown: &str, normalizer: &Normalizer, audio_path: &Path, audio_ref: &str) -> Result<Timings> {
+pub fn align_audio(
+    markdown: &str,
+    normalizer: &Normalizer,
+    audio_path: &Path,
+    audio_ref: &str,
+) -> Result<Timings> {
     let sentences = spoken_sentences(markdown, normalizer);
     let samples = forced_alignment::audio::load_audio(audio_path, forced_alignment::SAMPLE_RATE)
         .with_context(|| audio_path.display().to_string())?;
     let (transcript, report) = align_document(&samples, &sentences)?;
-    Ok(timings_from_alignment(&sentences, &transcript, &report, audio_ref))
+    Ok(timings_from_alignment(
+        &sentences,
+        &transcript,
+        &report,
+        audio_ref,
+    ))
 }
 
 /// The document's sentences, each normalized to its spoken words.
 pub fn spoken_sentences(markdown: &str, normalizer: &Normalizer) -> Vec<SpokenSentence> {
-    document_sentences(markdown).into_iter().map(|text| spoken_sentence(text, normalizer)).collect()
+    document_sentences(markdown)
+        .into_iter()
+        .map(|text| spoken_sentence(text, normalizer))
+        .collect()
 }
 
 fn spoken_sentence(text: String, normalizer: &Normalizer) -> SpokenSentence {
     let normalized = normalizer.normalize_with_spans(&text);
     // Each text word's char range in `text`.
-    let text_ranges: Vec<Range<usize>> = text_words(&text).into_iter().map(|w| char_range(&text, w)).collect();
+    let text_ranges: Vec<Range<usize>> = text_words(&text)
+        .into_iter()
+        .map(|w| char_range(&text, w))
+        .collect();
     let spoken: Vec<&str> = normalized.text.split_whitespace().collect();
     let sources = normalized
         .source_words(&spoken)
@@ -65,9 +81,9 @@ fn spoken_sentence(text: String, normalizer: &Normalizer) -> SpokenSentence {
         .map(|from| {
             let overlapping: Vec<usize> = match from {
                 None => vec![],
-                Some(from) => {
-                    (0..text_ranges.len()).filter(|&i| text_ranges[i].start < from.end && from.start < text_ranges[i].end).collect()
-                }
+                Some(from) => (0..text_ranges.len())
+                    .filter(|&i| text_ranges[i].start < from.end && from.start < text_ranges[i].end)
+                    .collect(),
             };
             match (overlapping.first(), overlapping.last()) {
                 (Some(&a), Some(&b)) => a..b + 1,
@@ -76,7 +92,10 @@ fn spoken_sentence(text: String, normalizer: &Normalizer) -> SpokenSentence {
         })
         .collect();
     SpokenSentence {
-        text_words: text_ranges.iter().map(|r| text.chars().skip(r.start).take(r.len()).collect()).collect(),
+        text_words: text_ranges
+            .iter()
+            .map(|r| text.chars().skip(r.start).take(r.len()).collect())
+            .collect(),
         words: spoken.into_iter().map(String::from).collect(),
         sources,
         text,
@@ -93,9 +112,19 @@ fn char_range(whole: &str, part: &str) -> Range<usize> {
 /// Align `samples` (mono, at `forced_alignment::SAMPLE_RATE`) against every
 /// sentence's words at once, telling the aligner where sentences start so
 /// it places speech that isn't in the text between sentences when it can.
-pub fn align_document(samples: &[f32], sentences: &[SpokenSentence]) -> Result<(Transcript, AlignReport)> {
-    let text = sentences.iter().flat_map(|s| &s.words).map(String::as_str).collect::<Vec<_>>().join(" ");
-    let options = AlignOptions { sentence_starts: Some(sentence_starts(sentences)) };
+pub fn align_document(
+    samples: &[f32],
+    sentences: &[SpokenSentence],
+) -> Result<(Transcript, AlignReport)> {
+    let text = sentences
+        .iter()
+        .flat_map(|s| &s.words)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    let options = AlignOptions {
+        sentence_starts: Some(sentence_starts(sentences)),
+    };
     forced_alignment::align_with(samples, &text, &options)
 }
 
@@ -139,13 +168,22 @@ pub fn timings_from_alignment(
     let all: Vec<(usize, &str, usize)> = sentences
         .iter()
         .enumerate()
-        .flat_map(|(s, sent)| sent.words.iter().enumerate().map(move |(k, w)| (s, w.as_str(), k)))
+        .flat_map(|(s, sent)| {
+            sent.words
+                .iter()
+                .enumerate()
+                .map(move |(k, w)| (s, w.as_str(), k))
+        })
         .collect();
     let filtered: Vec<usize> = report.filtered.iter().map(|f| f.original_index).collect();
     // `kept[k]` is the `word_index` of the aligner's word `k`.
     let kept: Vec<usize> = (0..all.len()).filter(|i| !filtered.contains(i)).collect();
     let aligned: Vec<&fa::Word> = transcript.segments.iter().flat_map(|s| &s.words).collect();
-    debug_assert_eq!(kept.len(), aligned.len(), "the aligner times every word it keeps");
+    debug_assert_eq!(
+        kept.len(),
+        aligned.len(),
+        "the aligner times every word it keeps"
+    );
 
     let ms = |t: f64| (t * 1000.0).round() / 1000.0;
 
@@ -156,10 +194,14 @@ pub fn timings_from_alignment(
         });
     };
     let mut times: Vec<Option<(f64, f64)>> = vec![None; sentences.len()];
-    let mut word_times: Vec<Vec<Option<(f64, f64)>>> =
-        sentences.iter().map(|s| vec![None; s.text_words.len()]).collect();
+    let mut word_times: Vec<Vec<Option<(f64, f64)>>> = sentences
+        .iter()
+        .map(|s| vec![None; s.text_words.len()])
+        .collect();
     for (&i, w) in kept.iter().zip(&aligned) {
-        let (Some(start), Some(end)) = (w.start, w.end) else { continue };
+        let (Some(start), Some(end)) = (w.start, w.end) else {
+            continue;
+        };
         let (sentence, spoken) = (all[i].0, all[i].2);
         widen(&mut times[sentence], start, end);
         for t in sentences[sentence].sources[spoken].clone() {
@@ -247,7 +289,11 @@ pub fn timings_from_alignment(
                     .text_words
                     .iter()
                     .zip(wt)
-                    .map(|(w, t)| WordTiming { text: w.clone(), start: t.map(|t| ms(t.0)), end: t.map(|t| ms(t.1)) })
+                    .map(|(w, t)| WordTiming {
+                        text: w.clone(),
+                        start: t.map(|t| ms(t.0)),
+                        end: t.map(|t| ms(t.1)),
+                    })
                     .collect(),
             })
             .collect(),
@@ -265,8 +311,15 @@ mod tests {
     fn sentence(text: &str, words: &str) -> SpokenSentence {
         let text_words: Vec<String> = text_words(text).into_iter().map(String::from).collect();
         let words: Vec<String> = words.split_whitespace().map(String::from).collect();
-        let sources = (0..words.len()).map(|i| if i < text_words.len() { i..i + 1 } else { 0..0 }).collect();
-        SpokenSentence { text: text.into(), text_words, words, sources }
+        let sources = (0..words.len())
+            .map(|i| if i < text_words.len() { i..i + 1 } else { 0..0 })
+            .collect();
+        SpokenSentence {
+            text: text.into(),
+            text_words,
+            words,
+            sources,
+        }
     }
 
     /// The aligner's words, each 1 second long, back to back from 0.
@@ -283,25 +336,43 @@ mod tests {
             })
             .collect();
         Transcript {
-            segments: vec![Segment { start: 0.0, end: 0.0, text: String::new(), words, speaker: None }],
+            segments: vec![Segment {
+                start: 0.0,
+                end: 0.0,
+                text: String::new(),
+                words,
+                speaker: None,
+            }],
             word_segments: None,
             language: "en".into(),
         }
     }
 
     fn report() -> AlignReport {
-        AlignReport { filtered: vec![], suspect: vec![], insertions: vec![], threshold: 0.3 }
+        AlignReport {
+            filtered: vec![],
+            suspect: vec![],
+            insertions: vec![],
+            threshold: 0.3,
+        }
     }
 
     #[test]
     fn sentence_starts_count_words() {
-        let s = [sentence("One two.", "one two."), sentence("—", ""), sentence("Three.", "three.")];
+        let s = [
+            sentence("One two.", "one two."),
+            sentence("—", ""),
+            sentence("Three.", "three."),
+        ];
         assert_eq!(sentence_starts(&s), vec![0, 2, 2]);
     }
 
     #[test]
     fn spoken_sentences_are_normalized() {
-        let s = spoken_sentences("It was 1945. Then more.", &Normalizer::from_map(Default::default()));
+        let s = spoken_sentences(
+            "It was 1945. Then more.",
+            &Normalizer::from_map(Default::default()),
+        );
         assert_eq!(s.len(), 2);
         assert_eq!(s[0].text, "It was 1945.");
         assert_eq!(s[0].words, vec!["It", "was", "nineteen", "forty", "five."]);
@@ -321,25 +392,44 @@ mod tests {
             &report(),
             "a.mp3",
         );
-        let words: Vec<(&str, Option<f64>, Option<f64>)> =
-            t.sentences[0].words.iter().map(|w| (w.text.as_str(), w.start, w.end)).collect();
+        let words: Vec<(&str, Option<f64>, Option<f64>)> = t.sentences[0]
+            .words
+            .iter()
+            .map(|w| (w.text.as_str(), w.start, w.end))
+            .collect();
         assert_eq!(
             words,
-            vec![("In", Some(0.0), Some(1.0)), ("1945", Some(1.0), Some(4.0)), ("&", None, None), ("after.", Some(4.0), Some(5.0))]
+            vec![
+                ("In", Some(0.0), Some(1.0)),
+                ("1945", Some(1.0), Some(4.0)),
+                ("&", None, None),
+                ("after.", Some(4.0), Some(5.0))
+            ]
         );
     }
 
     #[test]
     fn prose_maps_word_for_word_through_the_normalizer() {
-        let s = spoken_sentences("Often these days, we make things.", &Normalizer::from_map(Default::default()));
+        let s = spoken_sentences(
+            "Often these days, we make things.",
+            &Normalizer::from_map(Default::default()),
+        );
         assert_eq!(s[0].words, s[0].text_words);
         assert_eq!(s[0].sources, (0..6).map(|i| i..i + 1).collect::<Vec<_>>());
     }
 
     #[test]
     fn sentences_take_their_words_span() {
-        let s = [sentence("One two.", "one two."), sentence("Three.", "three.")];
-        let t = timings_from_alignment(&s, &transcript(&["one", "two.", "three."]), &report(), "a.mp3");
+        let s = [
+            sentence("One two.", "one two."),
+            sentence("Three.", "three."),
+        ];
+        let t = timings_from_alignment(
+            &s,
+            &transcript(&["one", "two.", "three."]),
+            &report(),
+            "a.mp3",
+        );
         let times: Vec<_> = t.sentences.iter().map(|s| s.times()).collect();
         assert_eq!(times, vec![Some((0.0, 2.0)), Some((2.0, 3.0))]);
         assert_eq!(t.sentences[0].text, "One two.");
@@ -352,9 +442,16 @@ mod tests {
         // "—" has nothing to align: the aligner drops it, so its words are
         // one fewer than the sentences', and the sentence of only "—" has
         // no times.
-        let s = [sentence("One.", "one."), sentence("—", "—"), sentence("Two three.", "two three.")];
+        let s = [
+            sentence("One.", "one."),
+            sentence("—", "—"),
+            sentence("Two three.", "two three."),
+        ];
         let mut r = report();
-        r.filtered = vec![fa::FilteredWord { word: "—".into(), original_index: 1 }];
+        r.filtered = vec![fa::FilteredWord {
+            word: "—".into(),
+            original_index: 1,
+        }];
         // The aligner's word 2 ("three.") is suspect, and speech before its
         // word 1 ("two") falls between sentences.
         r.suspect = vec![fa::SuspectWord {
@@ -373,7 +470,14 @@ mod tests {
         let t = timings_from_alignment(&s, &transcript(&["one.", "two", "three."]), &r, "a.mp3");
         let times: Vec<_> = t.sentences.iter().map(|s| s.times()).collect();
         assert_eq!(times, vec![Some((0.0, 1.0)), None, Some((1.0, 3.0))]);
-        assert_eq!(t.report.filtered, vec![FilteredWord { sentence: 1, word_index: 1, word: "—".into() }]);
+        assert_eq!(
+            t.report.filtered,
+            vec![FilteredWord {
+                sentence: 1,
+                word_index: 1,
+                word: "—".into()
+            }]
+        );
         assert_eq!(
             t.report.suspect,
             vec![SuspectWord {
@@ -402,7 +506,10 @@ mod tests {
 
     #[test]
     fn insertions_inside_before_and_after() {
-        let s = [sentence("One two.", "one two."), sentence("Three.", "three.")];
+        let s = [
+            sentence("One two.", "one two."),
+            sentence("Three.", "three."),
+        ];
         let ins = |before_word_index: usize| fa::Insertion {
             before_word_index,
             start: 0.0,
@@ -413,7 +520,12 @@ mod tests {
         let mut r = report();
         r.insertions = vec![ins(0), ins(1), ins(3)];
         let t = timings_from_alignment(&s, &transcript(&["one", "two.", "three."]), &r, "a.mp3");
-        let at: Vec<(InsertionAt, usize)> = t.report.insertions.iter().map(|i| (i.at, i.word_index)).collect();
+        let at: Vec<(InsertionAt, usize)> = t
+            .report
+            .insertions
+            .iter()
+            .map(|i| (i.at, i.word_index))
+            .collect();
         assert_eq!(
             at,
             vec![

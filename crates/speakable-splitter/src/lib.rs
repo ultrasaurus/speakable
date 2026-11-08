@@ -1,5 +1,5 @@
-use unicode_segmentation::UnicodeSegmentation;
 use serde::{Deserialize, Serialize};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Placeholder that temporarily replaces periods in known abbreviations so
 /// they don't trigger Unicode sentence boundaries. U+FFFE is a non-character
@@ -16,14 +16,12 @@ const ABBREVS: &[&str] = &[
     // Titles
     "Mr", "Mrs", "Ms", "Miss", "Dr", "Prof", "Rev", "Sr", "Jr", "Mlle", "Mme",
     // Geographic
-    "St", "Ave", "Blvd", "Rd", "Mt", "Dept",
-    // Latin
+    "St", "Ave", "Blvd", "Rd", "Mt", "Dept", // Latin
     "vs", "etc", "e.g", "i.e", "et al", "viz",
     // Months (sometimes abbreviated in prose)
     "Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aug", "Sep", "Sept", "Oct", "Nov", "Dec",
     // Corporate
-    "Corp", "Inc", "Ltd", "Est",
-    // Citations (e.g. "Vol. 31, No. 7)")
+    "Corp", "Inc", "Ltd", "Est", // Citations (e.g. "Vol. 31, No. 7)")
     "No", "Vol", "Fig", "Ref", "Vols", "p", "pp", "Ch", "Sec",
 ];
 
@@ -258,7 +256,10 @@ fn cap_sentence_length(text: String) -> Vec<String> {
         spans.push((s, text.len()));
     }
 
-    let weights: Vec<usize> = spans.iter().map(|&(a, b)| estimated_word_weight(&text[a..b])).collect();
+    let weights: Vec<usize> = spans
+        .iter()
+        .map(|&(a, b)| estimated_word_weight(&text[a..b]))
+        .collect();
     let total: usize = weights.iter().sum();
     // A single huge token has no word boundary to cut at.
     if total <= MAX_SENTENCE_WORDS || spans.len() < 2 {
@@ -326,7 +327,10 @@ fn hide_abbreviation_period(text: &str, pattern: &str) -> String {
 
     while let Some(rel) = rest.find(pattern) {
         let abs = consumed + rel;
-        let boundary = text[..abs].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
+        let boundary = text[..abs]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_alphanumeric());
 
         out.push_str(&rest[..rel]);
         if boundary {
@@ -355,10 +359,26 @@ fn hide_url_terminators(text: &str) -> String {
     let mut rest = text;
     while let Some(start) = url_start(rest) {
         out.push_str(&rest[..start]);
-        let token_len = rest[start..].find(char::is_whitespace).unwrap_or(rest.len() - start);
+        let token_len = rest[start..]
+            .find(char::is_whitespace)
+            .unwrap_or(rest.len() - start);
         let token = &rest[start..start + token_len];
         let body = token.trim_end_matches(|c: char| {
-            matches!(c, '.' | '?' | '!' | ',' | ';' | ':' | ')' | ']' | '}' | '"' | '\'' | '\u{201D}' | '\u{2019}')
+            matches!(
+                c,
+                '.' | '?'
+                    | '!'
+                    | ','
+                    | ';'
+                    | ':'
+                    | ')'
+                    | ']'
+                    | '}'
+                    | '"'
+                    | '\''
+                    | '\u{201D}'
+                    | '\u{2019}'
+            )
         });
         for c in body.chars() {
             match c {
@@ -382,7 +402,12 @@ fn url_start(text: &str) -> Option<usize> {
     while let Some(rel) = text[from..].find("http") {
         let at = from + rel;
         let scheme = text[at..].starts_with("http://") || text[at..].starts_with("https://");
-        if scheme && text[..at].chars().next_back().is_none_or(|c| !c.is_alphanumeric()) {
+        if scheme
+            && text[..at]
+                .chars()
+                .next_back()
+                .is_none_or(|c| !c.is_alphanumeric())
+        {
             return Some(at);
         }
         from = at + "http".len();
@@ -404,8 +429,14 @@ fn hide_phrase_periods(text: &str, phrase: &str) -> String {
     while let Some(rel) = rest.find(phrase) {
         let abs = consumed + rel;
         let end = abs + phrase.len();
-        let before_ok = text[..abs].chars().next_back().is_none_or(|c| !c.is_alphanumeric());
-        let after_ok = text[end..].chars().next().is_none_or(|c| !c.is_alphanumeric());
+        let before_ok = text[..abs]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_alphanumeric());
+        let after_ok = text[end..]
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric());
 
         out.push_str(&rest[..rel]);
         if before_ok && after_ok {
@@ -543,7 +574,11 @@ const MARKER_BRACKETS: &[(char, char)] = &[('[', ']'), ('(', ')')];
 /// keeping its own copy that could silently drift
 /// out of sync with this crate's sentence-level marker recognition.
 pub fn is_marker_body(body: &str) -> bool {
-    if !body.is_empty() && body.chars().all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace()) {
+    if !body.is_empty()
+        && body
+            .chars()
+            .all(|c| c.is_ascii_digit() || c == ',' || c.is_whitespace())
+    {
         return true;
     }
     if is_number_range_list(body) {
@@ -619,7 +654,10 @@ fn split_top_level_citation_fields(body: &str) -> Vec<&str> {
 /// appear there if they were inside a quoted span to begin with — the
 /// splitting above already consumed every real top-level occurrence.
 fn is_citation_field_list(body: &str) -> bool {
-    let fields: Vec<&str> = split_top_level_citation_fields(body).into_iter().map(str::trim).collect();
+    let fields: Vec<&str> = split_top_level_citation_fields(body)
+        .into_iter()
+        .map(str::trim)
+        .collect();
     if fields.len() < 2 || fields.iter().any(|f| f.is_empty()) {
         return false;
     }
@@ -630,11 +668,28 @@ fn is_citation_field_list(body: &str) -> bool {
     //   period is already hidden by the time this check runs.
     // - Treated the same as a literal `.` here, or that field fails the
     //   character-class check on the placeholder alone.
-    let field_ok = |f: &str| f.chars().all(|c| {
-        c.is_alphabetic() || c.is_ascii_digit() || c.is_whitespace()
-            || matches!(c, '.' | '-' | ':' | '&' | '\'' | '\u{FFFE}' | ',' | ';' | '"' | '\u{201C}' | '\u{201D}')
-    });
-    fields.iter().all(|f| field_ok(f)) && fields.iter().any(|f| f.chars().any(|c| c.is_ascii_digit()))
+    let field_ok = |f: &str| {
+        f.chars().all(|c| {
+            c.is_alphabetic()
+                || c.is_ascii_digit()
+                || c.is_whitespace()
+                || matches!(
+                    c,
+                    '.' | '-'
+                        | ':'
+                        | '&'
+                        | '\''
+                        | '\u{FFFE}'
+                        | ','
+                        | ';'
+                        | '"'
+                        | '\u{201C}'
+                        | '\u{201D}'
+                )
+        })
+    };
+    fields.iter().all(|f| field_ok(f))
+        && fields.iter().any(|f| f.chars().any(|c| c.is_ascii_digit()))
 }
 
 /// `unicode_sentences()` extends a sentence-terminal run (`.`/`!`/`?`)
@@ -672,7 +727,11 @@ fn reattach_marker_openers(line: &str, mut ranges: Vec<(usize, usize)>) -> Vec<(
         let opener_end = {
             let mut e = end;
             while let Some(c) = line[start..e].chars().last() {
-                if matches!(c, '"' | '\u{201C}') { e -= c.len_utf8(); } else { break; }
+                if matches!(c, '"' | '\u{201C}') {
+                    e -= c.len_utf8();
+                } else {
+                    break;
+                }
             }
             e
         };
@@ -689,7 +748,9 @@ fn reattach_marker_openers(line: &str, mut ranges: Vec<(usize, usize)>) -> Vec<(
 
         let (next_start, next_end) = ranges[i + 1];
         let next_text = &line[next_start..next_end];
-        let Some(rel_close) = next_text.find(closer) else { continue };
+        let Some(rel_close) = next_text.find(closer) else {
+            continue;
+        };
         // Reconstruct the full body, prepending back whatever opening quote
         // got swept into range `i` above — `is_marker_body`'s quote-aware
         // field splitter (`split_top_level_citation_fields`) needs the
@@ -863,7 +924,9 @@ fn is_citation_locator_tail(text: &str) -> bool {
     // `reattach_citation_locator_tails` still extends the real, unmodified
     // byte range, so this has no effect on what text ends up where.
     let normalized = text.replace(PERIOD_PLACEHOLDER, ".");
-    let Some(s) = normalized.trim().strip_suffix(']') else { return false };
+    let Some(s) = normalized.trim().strip_suffix(']') else {
+        return false;
+    };
     let s = s.strip_suffix('.').unwrap_or(s);
     let s = s.trim_start_matches([')', '"', '\'', '\u{201D}', '\u{2019}']);
     let s = s.trim_start_matches([',', ';']).trim_start();
@@ -913,7 +976,9 @@ fn reattach_citation_locator_tails(ranges: Vec<(usize, usize)>, line: &str) -> V
 /// `XIV`, `A`) or a lowercase Roman numeral ≤ 100 (`ii`; rejects real words
 /// like `mix`, which parses as 1009, and non-numerals like `e`/`g`).
 fn is_label_part(part: &str) -> bool {
-    if part.is_empty() || !part.chars().all(|c| c.is_alphanumeric()) { return false; }
+    if part.is_empty() || !part.chars().all(|c| c.is_alphanumeric()) {
+        return false;
+    }
     let alpha: Vec<char> = part.chars().filter(|c| c.is_alphabetic()).collect();
     if alpha.iter().all(|c| c.is_uppercase()) {
         return true;
@@ -934,7 +999,9 @@ fn is_label_part(part: &str) -> bool {
 /// non-numeral lowercase parts (`Ph.D.`, `e.g.`) are rejected.
 fn is_outline_label(s: &str) -> bool {
     let body = s.trim().trim_end_matches('.');
-    if body.chars().filter(|c| c.is_alphabetic()).count() > 4 { return false; }
+    if body.chars().filter(|c| c.is_alphabetic()).count() > 4 {
+        return false;
+    }
     body.split('.').all(is_label_part)
 }
 
@@ -982,7 +1049,9 @@ fn is_single_initial_token(token: &str) -> bool {
 /// `"Engelbart, D."`, `"J. R. R."`) — the rest of the sentence can be
 /// anything.
 fn ends_with_bare_initial(s: &str) -> bool {
-    s.split_whitespace().last().is_some_and(is_single_initial_token)
+    s.split_whitespace()
+        .last()
+        .is_some_and(is_single_initial_token)
 }
 
 /// Merges a sentence ending in a bare middle initial onto the sentence that
@@ -1075,7 +1144,9 @@ fn merge_journal_names(sentences: Vec<String>) -> Vec<String> {
 /// ending in a period, each word capitalized, a lowercase abbreviation
 /// (`acoust.`), or a connector.
 fn is_journal_name_piece(s: &str) -> bool {
-    const CONNECTORS: &[&str] = &["&", "of", "and", "the", "in", "for", "on", "united", "de", "der", "la", "für"];
+    const CONNECTORS: &[&str] = &[
+        "&", "of", "and", "the", "in", "for", "on", "united", "de", "der", "la", "für",
+    ];
     let s = s.trim();
     let words: Vec<&str> = s.split_whitespace().collect();
     s.ends_with('.')
@@ -1083,8 +1154,12 @@ fn is_journal_name_piece(s: &str) -> bool {
         && words.len() <= 6
         && words.iter().all(|w| {
             let first_upper = w.chars().next().is_some_and(|c| c.is_uppercase());
-            let lower_abbrev = w.ends_with('.') && w[..w.len() - 1].chars().all(|c| c.is_alphabetic());
-            let name_chars = w.trim_end_matches('.').chars().all(|c| c.is_alphabetic() || c == '-' || c == '\'');
+            let lower_abbrev =
+                w.ends_with('.') && w[..w.len() - 1].chars().all(|c| c.is_alphabetic());
+            let name_chars = w
+                .trim_end_matches('.')
+                .chars()
+                .all(|c| c.is_alphabetic() || c == '-' || c == '\'');
             (first_upper && name_chars) || lower_abbrev || CONNECTORS.contains(w)
         })
 }
@@ -1095,7 +1170,9 @@ fn is_journal_name_piece(s: &str) -> bool {
 fn is_citation_locator(s: &str) -> bool {
     let s = s.trim();
     let chars: Vec<char> = s.chars().collect();
-    let page_range = chars.windows(3).any(|w| w[0].is_ascii_digit() && matches!(w[1], '–' | '-') && w[2].is_ascii_digit());
+    let page_range = chars
+        .windows(3)
+        .any(|w| w[0].is_ascii_digit() && matches!(w[1], '–' | '-') && w[2].is_ascii_digit());
     let paren_year = chars.windows(6).any(|w| {
         w[0] == '(' && w[1..5].iter().all(|c| c.is_ascii_digit()) && matches!(w[5], ')' | ',' | ' ')
     });
@@ -1177,7 +1254,10 @@ mod tests {
     #[test]
     fn split_exclamation_and_question_marks() {
         let result = split("Watch out! Are you okay? I think so.");
-        assert_eq!(texts(result), vec!["Watch out!", "Are you okay?", "I think so."]);
+        assert_eq!(
+            texts(result),
+            vec!["Watch out!", "Are you okay?", "I think so."]
+        );
     }
 
     // ── paragraph handling ────────────────────────────────────────────────
@@ -1186,7 +1266,10 @@ mod tests {
     fn blank_line_creates_paragraph_boundary() {
         let input = "First paragraph.\n\nSecond paragraph.";
         let result = split(input);
-        assert_eq!(texts(result.clone()), vec!["First paragraph.", "Second paragraph."]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["First paragraph.", "Second paragraph."]
+        );
         assert_eq!(paragraph_ends(&result), vec![true, true]);
     }
 
@@ -1202,7 +1285,10 @@ mod tests {
     fn paragraph_end_only_on_last_sentence_of_paragraph() {
         let input = "One. Two.\n\nThree. Four.";
         let result = split(input);
-        assert_eq!(texts(result.clone()), vec!["One.", "Two.", "Three.", "Four."]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["One.", "Two.", "Three.", "Four."]
+        );
         assert_eq!(paragraph_ends(&result), vec![false, true, false, true]);
     }
 
@@ -1245,12 +1331,12 @@ mod tests {
 
     #[test]
     fn abbreviation_mlle_does_not_cause_false_split() {
-        let result = split(
-            "Of Mlle. Germaine Tailleferre one can only repeat Doctor Johnson's dictum.",
+        let result =
+            split("Of Mlle. Germaine Tailleferre one can only repeat Doctor Johnson's dictum.");
+        assert_eq!(
+            texts(result),
+            vec!["Of Mlle. Germaine Tailleferre one can only repeat Doctor Johnson's dictum.",]
         );
-        assert_eq!(texts(result), vec![
-            "Of Mlle. Germaine Tailleferre one can only repeat Doctor Johnson's dictum.",
-        ]);
     }
 
     #[test]
@@ -1264,15 +1350,19 @@ mod tests {
         // Both "Vol." and "No." are citation abbreviations in ABBREVS, so
         // neither causes a false split before the digit that follows.
         let result = split("Communications of the ACM (Vol. 31, No. 7).");
-        assert_eq!(texts(result), vec![
-            "Communications of the ACM (Vol. 31, No. 7).",
-        ]);
+        assert_eq!(
+            texts(result),
+            vec!["Communications of the ACM (Vol. 31, No. 7).",]
+        );
     }
 
     #[test]
     fn abbreviation_at_sentence_end_is_not_split() {
         let result = split("She brought food, drinks, etc. Then she left.");
-        assert_eq!(texts(result), vec!["She brought food, drinks, etc. Then she left."]);
+        assert_eq!(
+            texts(result),
+            vec!["She brought food, drinks, etc. Then she left."]
+        );
     }
 
     #[test]
@@ -1281,15 +1371,15 @@ mod tests {
         // a plain substring match on "p." would wrongly hide the period in
         // "shop." or "stop." since neither is preceded by a word boundary.
         let result = split("I need to go to the shop. Then I'll head home.");
-        assert_eq!(texts(result), vec![
-            "I need to go to the shop.",
-            "Then I'll head home.",
-        ]);
+        assert_eq!(
+            texts(result),
+            vec!["I need to go to the shop.", "Then I'll head home.",]
+        );
         let result = split("We need to stop. The light is red.");
-        assert_eq!(texts(result), vec![
-            "We need to stop.",
-            "The light is red.",
-        ]);
+        assert_eq!(
+            texts(result),
+            vec!["We need to stop.", "The light is red.",]
+        );
     }
 
     #[test]
@@ -1312,14 +1402,20 @@ mod tests {
     #[test]
     fn ed_note_does_not_cause_false_split() {
         let result = split("*Ed. Note: the quotation is an addendum.]");
-        assert_eq!(texts(result), vec!["*Ed. Note: the quotation is an addendum.]"]);
+        assert_eq!(
+            texts(result),
+            vec!["*Ed. Note: the quotation is an addendum.]"]
+        );
         let result = split("[Ed. note: sources are listed by author.]");
-        assert_eq!(texts(result), vec!["[Ed. note: sources are listed by author.]"]);
+        assert_eq!(
+            texts(result),
+            vec!["[Ed. note: sources are listed by author.]"]
+        );
         let result = split("Smith agreed. Ed. Note: this was later retracted.");
-        assert_eq!(texts(result), vec![
-            "Smith agreed.",
-            "Ed. Note: this was later retracted.",
-        ]);
+        assert_eq!(
+            texts(result),
+            vec!["Smith agreed.", "Ed. Note: this was later retracted.",]
+        );
     }
 
     #[test]
@@ -1327,9 +1423,15 @@ mod tests {
         // "Ed" is a name as often as an abbreviation, so only the
         // "Ed. Note" phrase is protected.
         let result = split("She called Jo and Ed. Then she left.");
-        assert_eq!(texts(result), vec!["She called Jo and Ed.", "Then she left."]);
+        assert_eq!(
+            texts(result),
+            vec!["She called Jo and Ed.", "Then she left."]
+        );
         let result = split("I asked Ed. Notebooks were on sale.");
-        assert_eq!(texts(result), vec!["I asked Ed.", "Notebooks were on sale."]);
+        assert_eq!(
+            texts(result),
+            vec!["I asked Ed.", "Notebooks were on sale."]
+        );
     }
 
     // ── URLs ─────────────────────────────────────────────────────────────
@@ -1338,17 +1440,37 @@ mod tests {
     fn a_url_is_not_split_at_its_own_punctuation() {
         let doi = "https://doi.org/10.1002/1531-8249(200005)47:5%3C614::AID-ANA9%3E3.0.CO;2-N";
         let result = split(&format!("Ann Neurol 2000; 47:614–24. {doi}"));
-        assert_eq!(texts(result), vec![format!("Ann Neurol 2000; 47:614–24. {doi}")]);
-        let result = split("Retrieved from https://en.wikipedia.org/w/index.php?title=Migraine&oldid=1 today.");
-        assert_eq!(texts(result), vec!["Retrieved from https://en.wikipedia.org/w/index.php?title=Migraine&oldid=1 today."]);
+        assert_eq!(
+            texts(result),
+            vec![format!("Ann Neurol 2000; 47:614–24. {doi}")]
+        );
+        let result = split(
+            "Retrieved from https://en.wikipedia.org/w/index.php?title=Migraine&oldid=1 today.",
+        );
+        assert_eq!(
+            texts(result),
+            vec![
+                "Retrieved from https://en.wikipedia.org/w/index.php?title=Migraine&oldid=1 today."
+            ]
+        );
         let result = split("Watch https://youtube.com/live/X?si=O2Pm. It helps!");
-        assert_eq!(texts(result), vec!["Watch https://youtube.com/live/X?si=O2Pm.", "It helps!"]);
+        assert_eq!(
+            texts(result),
+            vec!["Watch https://youtube.com/live/X?si=O2Pm.", "It helps!"]
+        );
     }
 
     #[test]
     fn a_sentence_still_ends_after_a_url() {
         let result = split("See https://x.org/v3.0.CO. Then go (https://x.org/b). Done.");
-        assert_eq!(texts(result), vec!["See https://x.org/v3.0.CO.", "Then go (https://x.org/b).", "Done."]);
+        assert_eq!(
+            texts(result),
+            vec![
+                "See https://x.org/v3.0.CO.",
+                "Then go (https://x.org/b).",
+                "Done."
+            ]
+        );
         // Only a URL that starts a word: `xhttp://` is not one.
         let result = split("Odd xhttp://v3.0.CO c.");
         assert_eq!(texts(result), vec!["Odd xhttp://v3.0.", "CO c."]);
@@ -1376,7 +1498,10 @@ mod tests {
         // still end in one, which is enough to merge forward under the
         // deliberate over-merging policy (see `merge_initials`).
         let result = split("Engelbart, D. C. described the framework in detail.");
-        assert_eq!(texts(result), vec!["Engelbart, D. C. described the framework in detail."]);
+        assert_eq!(
+            texts(result),
+            vec!["Engelbart, D. C. described the framework in detail."]
+        );
     }
 
     #[test]
@@ -1409,12 +1534,15 @@ mod tests {
     fn split_multi_paragraph_preserves_order() {
         let input = "Hello world. How are you?\n\nI am fine. Thanks for asking.";
         let result = split(input);
-        assert_eq!(texts(result.clone()), vec![
-            "Hello world.",
-            "How are you?",
-            "I am fine.",
-            "Thanks for asking.",
-        ]);
+        assert_eq!(
+            texts(result.clone()),
+            vec![
+                "Hello world.",
+                "How are you?",
+                "I am fine.",
+                "Thanks for asking.",
+            ]
+        );
         assert_eq!(paragraph_ends(&result), vec![false, true, false, true]);
     }
 
@@ -1423,7 +1551,10 @@ mod tests {
     #[test]
     fn outline_header_merged_with_next() {
         let result = split("I. Introduction\n\nII. Methods");
-        assert_eq!(texts(result.clone()), vec!["I. Introduction", "II. Methods"]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["I. Introduction", "II. Methods"]
+        );
         assert_eq!(paragraph_ends(&result), vec![true, true]);
     }
 
@@ -1431,13 +1562,19 @@ mod tests {
     fn outline_header_lowercase_next_word() {
         // Lowercase next word — unicode_sentences already keeps as one sentence.
         let result = split("I. introduction\n\nII. methods");
-        assert_eq!(texts(result.clone()), vec!["I. introduction", "II. methods"]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["I. introduction", "II. methods"]
+        );
     }
 
     #[test]
     fn outline_alpha_label_merged() {
         let result = split("A. Background\n\nB. Related Work");
-        assert_eq!(texts(result.clone()), vec!["A. Background", "B. Related Work"]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["A. Background", "B. Related Work"]
+        );
     }
 
     #[test]
@@ -1465,7 +1602,10 @@ mod tests {
     #[test]
     fn lowercase_roman_label_merged() {
         let result = split("i. Introduction\n\nii. Methods\n\niii. Results");
-        assert_eq!(texts(result.clone()), vec!["i. Introduction", "ii. Methods", "iii. Results"]);
+        assert_eq!(
+            texts(result.clone()),
+            vec!["i. Introduction", "ii. Methods", "iii. Results"]
+        );
     }
 
     #[test]
@@ -1513,8 +1653,12 @@ mod tests {
         let result = split("W.E.B. Du B.");
         assert_eq!(texts(result), vec!["W.E.B. Du B."]);
         let result = split("J.B. Braithwaite’s children wrote of their father:");
-        assert_eq!(texts(result), vec!["J.B. Braithwaite’s children wrote of their father:"]);
-        let result = split("U.S. Department of Health and Human Services, Food and Drug Administration.");
+        assert_eq!(
+            texts(result),
+            vec!["J.B. Braithwaite’s children wrote of their father:"]
+        );
+        let result =
+            split("U.S. Department of Health and Human Services, Food and Drug Administration.");
         assert_eq!(
             texts(result),
             vec!["U.S. Department of Health and Human Services, Food and Drug Administration."]
@@ -1529,9 +1673,15 @@ mod tests {
         // "10." + "U.S. " + prose); merging repeats while the accumulated
         // piece is still a label.
         let result = split("1.E.1. The following sentence must appear prominently.");
-        assert_eq!(texts(result), vec!["1.E.1. The following sentence must appear prominently."]);
+        assert_eq!(
+            texts(result),
+            vec!["1.E.1. The following sentence must appear prominently."]
+        );
         let result = split("10.U.S. Department of Justice Crime in the United States 2000");
-        assert_eq!(texts(result), vec!["10.U.S. Department of Justice Crime in the United States 2000"]);
+        assert_eq!(
+            texts(result),
+            vec!["10.U.S. Department of Justice Crime in the United States 2000"]
+        );
     }
 
     #[test]
@@ -1543,12 +1693,25 @@ mod tests {
 
     #[test]
     fn is_outline_label_shapes() {
-        for s in ["I. ", "8. ", "ii.", "5.7. ", "5.2.3.1.", "1.A.", "1.E.1. ", "W.E.B. ", "U.S. ", "10.U.S. "] {
+        for s in [
+            "I. ", "8. ", "ii.", "5.7. ", "5.2.3.1.", "1.A.", "1.E.1. ", "W.E.B. ", "U.S. ",
+            "10.U.S. ",
+        ] {
             assert!(is_outline_label(s), "{s:?} should be a label");
         }
         // Lowercase non-numerals ("e", "g", "mix"), mixed case, empty parts,
         // over 4 letters, and anything containing whitespace are not labels.
-        for s in ["e.g.", "i.e.", "mix.", "Ph.D.", "5..7.", "A.B.C.D.E.", "Wait.", "U.S. Army", "."] {
+        for s in [
+            "e.g.",
+            "i.e.",
+            "mix.",
+            "Ph.D.",
+            "5..7.",
+            "A.B.C.D.E.",
+            "Wait.",
+            "U.S. Army",
+            ".",
+        ] {
             assert!(!is_outline_label(s), "{s:?} should not be a label");
         }
     }
@@ -1574,7 +1737,10 @@ mod tests {
         let result = split("Bacon S. P. (2004). Relative importance of temporal information.");
         assert_eq!(
             texts(result),
-            vec!["Bacon S. P. (2004).", "Relative importance of temporal information."]
+            vec![
+                "Bacon S. P. (2004).",
+                "Relative importance of temporal information."
+            ]
         );
         // A single non-initial letter before the year doesn't trigger the
         // bug in the first place (UAX #29 doesn't isolate "(2004)." as its
@@ -1591,10 +1757,22 @@ mod tests {
         // belonging to the sentence it cites, not as its own free-standing
         // "sentence" — merged, not split off, regardless of asterisk vs.
         // bracket style or whether it's glued or spaced.
-        assert_eq!(texts(split("seem promising.*1*")), vec!["seem promising.*1*"]);
-        assert_eq!(texts(split("seem promising. *1*")), vec!["seem promising. *1*"]);
-        assert_eq!(texts(split("Next sentence. [12]")), vec!["Next sentence. [12]"]);
-        assert_eq!(texts(split("Next sentence.[12]")), vec!["Next sentence.[12]"]);
+        assert_eq!(
+            texts(split("seem promising.*1*")),
+            vec!["seem promising.*1*"]
+        );
+        assert_eq!(
+            texts(split("seem promising. *1*")),
+            vec!["seem promising. *1*"]
+        );
+        assert_eq!(
+            texts(split("Next sentence. [12]")),
+            vec!["Next sentence. [12]"]
+        );
+        assert_eq!(
+            texts(split("Next sentence.[12]")),
+            vec!["Next sentence.[12]"]
+        );
     }
 
     #[test]
@@ -1657,14 +1835,20 @@ mod tests {
     #[test]
     fn short_capitalized_sentence_before_a_number_is_not_a_journal_name() {
         let pieces = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        for v in [&["Done. ", "5 PM came."][..], &["Stop. ", "3 CARS."], &["We met in Paris. ", "25 (2000) people came."]] {
+        for v in [
+            &["Done. ", "5 PM came."][..],
+            &["Stop. ", "3 CARS."],
+            &["We met in Paris. ", "25 (2000) people came."],
+        ] {
             assert_eq!(merge_journal_names(pieces(v)), pieces(v), "{v:?}");
         }
         assert!(!is_citation_locator("5 minutes later, we left."));
         assert!(!is_citation_locator("2020 was a hard year."));
         assert!(is_citation_locator("108, 1170–1180 (2000)."));
         assert!(!is_journal_name_piece("We met in Paris."));
-        assert!(!is_journal_name_piece("Some physiological characteristics of auditory flutter fusion in man."));
+        assert!(!is_journal_name_piece(
+            "Some physiological characteristics of auditory flutter fusion in man."
+        ));
     }
 
     #[test]
@@ -1674,7 +1858,9 @@ mod tests {
             vec!["Rough sounds are aversive.[4–8]", "Screams are rough."]
         );
         assert_eq!(
-            texts(split("Rough sounds are aversive.[1, 4–8] Screams are rough.")),
+            texts(split(
+                "Rough sounds are aversive.[1, 4–8] Screams are rough."
+            )),
             vec!["Rough sounds are aversive.[1, 4–8]", "Screams are rough."]
         );
         assert!(is_marker_body("4-8"));
@@ -1694,7 +1880,9 @@ mod tests {
         // the same tear reaching the TTS backend as two sentences, in
         // synthesized audio too.
         assert_eq!(
-            texts(split("this quest is a search to be in relationship with God.[^3]")),
+            texts(split(
+                "this quest is a search to be in relationship with God.[^3]"
+            )),
             vec!["this quest is a search to be in relationship with God.[^3]"]
         );
         // A labeled (non-numeric) footnote reference is the same shape.
@@ -1792,7 +1980,11 @@ mod tests {
             ),
         ] {
             let result = texts(split(text));
-            assert_eq!(result.last().map(String::as_str), Some(expected), "{text:?}");
+            assert_eq!(
+                result.last().map(String::as_str),
+                Some(expected),
+                "{text:?}"
+            );
         }
     }
 
@@ -1917,16 +2109,12 @@ mod tests {
         // prone to failing forced alignment and bleeding into the next
         // segment's audio. Left bundled instead, same as a marker at the
         // end of a paragraph merges backward onto what precedes it.
+        assert_eq!(texts(split("*1* How are you?")), vec!["*1* How are you?"]);
+        assert_eq!(texts(split("[1] How are you?")), vec!["[1] How are you?"]);
         assert_eq!(
-            texts(split("*1* How are you?")),
-            vec!["*1* How are you?"]
-        );
-        assert_eq!(
-            texts(split("[1] How are you?")),
-            vec!["[1] How are you?"]
-        );
-        assert_eq!(
-            texts(split("(1) Concept Manipulation\u{2014}Humans rose above the lower forms of life.")),
+            texts(split(
+                "(1) Concept Manipulation\u{2014}Humans rose above the lower forms of life."
+            )),
             vec!["(1) Concept Manipulation\u{2014}Humans rose above the lower forms of life."]
         );
     }
@@ -1953,7 +2141,7 @@ mod tests {
              care efforts, though often without reaching a resolution.[1] \
              This is because the \u{201c}care\u{201d} is an implicit effort \
              to control the behavior of the outrageous Friend, a use of \
-             concealed power."
+             concealed power.",
         );
         let ts = texts(result);
         assert!(ts.iter().any(|s| s.ends_with("a resolution.[1]")));
@@ -1967,7 +2155,10 @@ mod tests {
         // Same UAX #29 quirk applies to parenthetical citations, not just
         // square-bracket ones.
         let result = split("See the report.(2019) Next sentence follows.");
-        assert_eq!(texts(result), vec!["See the report.(2019)", "Next sentence follows."]);
+        assert_eq!(
+            texts(result),
+            vec!["See the report.(2019)", "Next sentence follows."]
+        );
     }
 
     #[test]
@@ -1980,7 +2171,7 @@ mod tests {
             "Ramo has given a number of talks dealing with the future \
              possibilities of computers for \u{201c}extending man\u{2019}s \
              intellect,\u{201d} and wrote several articles.[18, 19] His \
-             projections seem slanted more toward larger bodies of humans."
+             projections seem slanted more toward larger bodies of humans.",
         );
         let ts = texts(result);
         assert!(ts.iter().any(|s| s.ends_with("articles.[18, 19]")));
@@ -1991,7 +2182,10 @@ mod tests {
     #[test]
     fn unspaced_three_number_marker_stays_with_preceding_sentence() {
         let result = split("As shown earlier.[1, 2, 3] The results follow.");
-        assert_eq!(texts(result), vec!["As shown earlier.[1, 2, 3]", "The results follow."]);
+        assert_eq!(
+            texts(result),
+            vec!["As shown earlier.[1, 2, 3]", "The results follow."]
+        );
     }
 
     #[test]
@@ -2072,7 +2266,10 @@ mod tests {
         let result = split(input);
         assert_eq!(
             texts(result.clone()),
-            vec!["Sentence ending in an ellipsis.…", "A new paragraph entirely."]
+            vec![
+                "Sentence ending in an ellipsis.…",
+                "A new paragraph entirely."
+            ]
         );
         assert_eq!(paragraph_ends(&result), vec![true, true]);
     }
@@ -2136,7 +2333,10 @@ mod tests {
     #[test]
     fn oversize_author_list_is_cut_at_commas_into_bounded_pieces() {
         let list = author_list(300);
-        assert!(estimate(&list) > MAX_SENTENCE_WORDS, "fixture should be oversize");
+        assert!(
+            estimate(&list) > MAX_SENTENCE_WORDS,
+            "fixture should be oversize"
+        );
         let entry = format!(
             "620. {list} Disability-adjusted life years for 291 diseases. Lancet 380: 2197–2223, 2012."
         );

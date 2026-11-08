@@ -14,8 +14,8 @@ mod map;
 pub use demo::{render_demo, title_of};
 pub use descript::{DescriptSegment, DescriptTranscript};
 pub use format::{
-    Error, FilteredWord, Insertion, InsertionAt, MissingWord, Report, SentenceTiming, Stale, SuspectReason,
-    SuspectWord, Timings, WordTiming, FORMAT_VERSION,
+    Error, FilteredWord, Insertion, InsertionAt, MissingWord, Report, SentenceTiming, Stale,
+    SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
 };
 pub use map::{compare_key, map_words, words, SentenceMap, TimedWord};
 
@@ -23,7 +23,11 @@ pub use map::{compare_key, map_words, words, SentenceMap, TimedWord};
 /// sentences `speakable_markdown::to_html_with_sentence_spans` puts in
 /// spans, so a sentence's index here is its `data-sentence` there.
 pub fn document_sentences(markdown: &str) -> Vec<String> {
-    speakable_markdown::split_for_export(markdown).0.into_iter().map(|s| s.text).collect()
+    speakable_markdown::split_for_export(markdown)
+        .0
+        .into_iter()
+        .map(|s| s.text)
+        .collect()
 }
 
 /// Timings for `markdown` from timed words of the recording at `audio`
@@ -67,7 +71,11 @@ pub fn timings_from_words(markdown: &str, timed: &[TimedWord], audio: &str) -> T
                 words: words
                     .iter()
                     .zip(word_times)
-                    .map(|(w, t)| WordTiming { text: w.clone(), start: t.map(|t| ms(t.0)), end: t.map(|t| ms(t.1)) })
+                    .map(|(w, t)| WordTiming {
+                        text: w.clone(),
+                        start: t.map(|t| ms(t.0)),
+                        end: t.map(|t| ms(t.1)),
+                    })
                     .collect(),
             })
             .collect(),
@@ -77,7 +85,11 @@ pub fn timings_from_words(markdown: &str, timed: &[TimedWord], audio: &str) -> T
 
 /// Timings for `markdown` from a Descript transcript of the recording at
 /// `audio`.
-pub fn timings_from_descript(markdown: &str, transcript: &DescriptTranscript, audio: &str) -> Timings {
+pub fn timings_from_descript(
+    markdown: &str,
+    transcript: &DescriptTranscript,
+    audio: &str,
+) -> Timings {
     timings_from_words(markdown, &transcript.timed_words(), audio)
 }
 
@@ -85,12 +97,18 @@ pub fn timings_from_descript(markdown: &str, transcript: &DescriptTranscript, au
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../samples/transparency-wins");
+    const SAMPLE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../samples/transparency-wins"
+    );
 
     fn read_sample() -> Option<(String, DescriptTranscript)> {
         let md = std::fs::read_to_string(format!("{SAMPLE}/talk.md")).ok()?;
         let json = std::fs::read_to_string(format!("{SAMPLE}/talk.descript.json")).ok()?;
-        Some((md, DescriptTranscript::from_json(&json).expect("the sample transcript parses")))
+        Some((
+            md,
+            DescriptTranscript::from_json(&json).expect("the sample transcript parses"),
+        ))
     }
 
     #[test]
@@ -100,13 +118,21 @@ mod tests {
         let timed: Vec<TimedWord> = ["Talk", "One", "here.", "Two", "here."]
             .iter()
             .enumerate()
-            .map(|(i, w)| TimedWord { text: w.to_string(), start: i as f64, end: i as f64 + 0.5 })
+            .map(|(i, w)| TimedWord {
+                text: w.to_string(),
+                start: i as f64,
+                end: i as f64 + 0.5,
+            })
             .collect();
         let t = timings_from_words(&with, &timed, "talk.mp3");
         assert_eq!(t.sentences.len(), 3);
         t.check(body).expect("matches the stripped markdown");
-        t.check(&with).expect("matches the markdown with frontmatter");
-        assert_eq!(title_of(&format!("---\n# a yaml comment\n---\n{body}")).as_deref(), Some("Talk"));
+        t.check(&with)
+            .expect("matches the markdown with frontmatter");
+        assert_eq!(
+            title_of(&format!("---\n# a yaml comment\n---\n{body}")).as_deref(),
+            Some("Talk")
+        );
     }
 
     #[test]
@@ -130,7 +156,11 @@ mod tests {
                     text: "One.".into(),
                     start: Some(0.42),
                     end: Some(3.1),
-                    words: vec![WordTiming { text: "One.".into(), start: Some(0.42), end: Some(3.1) }],
+                    words: vec![WordTiming {
+                        text: "One.".into(),
+                        start: Some(0.42),
+                        end: Some(3.1),
+                    }],
                 },
                 SentenceTiming {
                     index: 1,
@@ -138,9 +168,21 @@ mod tests {
                     start: None,
                     end: None,
                     words: vec![
-                        WordTiming { text: "Two".into(), start: None, end: None },
-                        WordTiming { text: "&".into(), start: None, end: None },
-                        WordTiming { text: "three.".into(), start: None, end: None },
+                        WordTiming {
+                            text: "Two".into(),
+                            start: None,
+                            end: None,
+                        },
+                        WordTiming {
+                            text: "&".into(),
+                            start: None,
+                            end: None,
+                        },
+                        WordTiming {
+                            text: "three.".into(),
+                            start: None,
+                            end: None,
+                        },
                     ],
                 },
             ],
@@ -173,7 +215,11 @@ mod tests {
                     start: 0.42,
                     end: 3.1,
                 }],
-                missing: vec![MissingWord { sentence: 1, word_index: 1, word: "Two.".into() }],
+                missing: vec![MissingWord {
+                    sentence: 1,
+                    word_index: 1,
+                    word: "Two.".into(),
+                }],
                 filtered: vec![],
                 threshold: None,
             },
@@ -186,7 +232,10 @@ mod tests {
         assert!(json.contains("\"in_sentence\": 1"), "{json}");
         assert!(json.contains("\"reason\": \"Replaced\""), "{json}");
         // A word with no times is listed, with only its text.
-        assert!(json.contains("{\n          \"text\": \"&\"\n        }"), "{json}");
+        assert!(
+            json.contains("{\n          \"text\": \"&\"\n        }"),
+            "{json}"
+        );
         assert_eq!(Timings::from_json(&json).unwrap(), t);
         assert!(matches!(
             Timings::from_json(&json.replace("\"version\": \"0.1\"", "\"version\": \"0.2\"")),
@@ -196,13 +245,28 @@ mod tests {
 
     #[test]
     fn an_empty_report_is_left_out() {
-        let mut t = timings_from_words("One here.", &[TimedWord::new("one", 0.0, 0.2), TimedWord::new("here", 0.2, 0.5)], "a.mp3");
+        let mut t = timings_from_words(
+            "One here.",
+            &[
+                TimedWord::new("one", 0.0, 0.2),
+                TimedWord::new("here", 0.2, 0.5),
+            ],
+            "a.mp3",
+        );
         assert!(t.report.is_empty());
         assert_eq!(
             t.sentences[0].words,
             vec![
-                WordTiming { text: "One".into(), start: Some(0.0), end: Some(0.2) },
-                WordTiming { text: "here.".into(), start: Some(0.2), end: Some(0.5) },
+                WordTiming {
+                    text: "One".into(),
+                    start: Some(0.0),
+                    end: Some(0.2)
+                },
+                WordTiming {
+                    text: "here.".into(),
+                    start: Some(0.2),
+                    end: Some(0.5)
+                },
             ]
         );
         t.sentences[0].words.clear();
@@ -230,13 +294,21 @@ mod tests {
         let md = "One here. Two here.";
         let t = timings_from_words(md, &[], "a.mp3");
         assert!(t.check(md).is_ok());
-        assert!(matches!(t.check("One here. Two there."), Err(Error::Stale(Stale { first_difference: Some(1), .. }))));
+        assert!(matches!(
+            t.check("One here. Two there."),
+            Err(Error::Stale(Stale {
+                first_difference: Some(1),
+                ..
+            }))
+        ));
         assert!(matches!(t.check("One here."), Err(Error::Stale(_))));
     }
 
     #[test]
     fn reads_the_sample_descript_transcript() {
-        let Some((md, transcript)) = read_sample() else { return };
+        let Some((md, transcript)) = read_sample() else {
+            return;
+        };
         let words = transcript.timed_words();
         assert_eq!(words.len(), 291);
         assert_eq!(words[0], TimedWord::new("Often", 0.27, 0.63));
@@ -245,7 +317,11 @@ mod tests {
         assert!(t.check(&md).is_ok());
         assert_eq!(t.sentences.len(), document_sentences(&md).len());
         // Every sentence of the excerpt is spoken in the recording.
-        assert!(t.sentences.iter().all(|s| s.times().is_some()), "{}", t.to_json());
+        assert!(
+            t.sentences.iter().all(|s| s.times().is_some()),
+            "{}",
+            t.to_json()
+        );
         // The first sentence starts with the first word.
         assert_eq!(t.sentences[0].start, Some(0.27));
         // Sentences are in order and don't overlap.
@@ -256,12 +332,29 @@ mod tests {
 
         // The places where the recording and the text differ.
         let r = &t.report;
-        let missing: Vec<(usize, &str)> = r.missing.iter().map(|w| (w.sentence, w.word.as_str())).collect();
+        let missing: Vec<(usize, &str)> = r
+            .missing
+            .iter()
+            .map(|w| (w.sentence, w.word.as_str()))
+            .collect();
         assert_eq!(missing, vec![(2, "with")]);
-        let inserted: Vec<(InsertionAt, &str)> = r.insertions.iter().map(|i| (i.at, i.decoded_text.as_str())).collect();
-        assert_eq!(inserted, vec![(InsertionAt::InSentence(2), "C"), (InsertionAt::InSentence(9), "about")]);
-        let replaced: Vec<(usize, &str, SuspectReason, Option<&str>)> =
-            r.suspect.iter().map(|w| (w.sentence, w.word.as_str(), w.reason, w.heard.as_deref())).collect();
+        let inserted: Vec<(InsertionAt, &str)> = r
+            .insertions
+            .iter()
+            .map(|i| (i.at, i.decoded_text.as_str()))
+            .collect();
+        assert_eq!(
+            inserted,
+            vec![
+                (InsertionAt::InSentence(2), "C"),
+                (InsertionAt::InSentence(9), "about")
+            ]
+        );
+        let replaced: Vec<(usize, &str, SuspectReason, Option<&str>)> = r
+            .suspect
+            .iter()
+            .map(|w| (w.sentence, w.word.as_str(), w.reason, w.heard.as_deref()))
+            .collect();
         assert_eq!(
             replaced,
             vec![

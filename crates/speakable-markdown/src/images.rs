@@ -7,7 +7,10 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 
 /// Where `markdown`'s images point, in document order, repeats included.
 pub fn image_destinations(markdown: &str) -> Vec<String> {
-    image_spans(markdown).into_iter().map(|(_, dest)| dest).collect()
+    image_spans(markdown)
+        .into_iter()
+        .map(|(_, dest)| dest)
+        .collect()
 }
 
 /// The `http(s)` image destinations, each once, in document order.
@@ -23,7 +26,10 @@ pub fn remote_image_urls(markdown: &str) -> Vec<String> {
 
 /// `markdown` with each image destination `replace` returns `Some` for
 /// swapped for that value. A link to the same URL is left alone.
-pub fn replace_image_destinations(markdown: &str, replace: impl Fn(&str) -> Option<String>) -> String {
+pub fn replace_image_destinations(
+    markdown: &str,
+    replace: impl Fn(&str) -> Option<String>,
+) -> String {
     let mut out = String::with_capacity(markdown.len());
     let mut copied = 0;
     for (span, dest) in image_spans(markdown) {
@@ -43,11 +49,16 @@ fn image_spans(markdown: &str) -> Vec<(std::ops::Range<usize>, String)> {
     options.insert(Options::ENABLE_TABLES);
     let mut spans = Vec::new();
     for (event, range) in Parser::new_ext(markdown, options).into_offset_iter() {
-        let Event::Start(Tag::Image { dest_url, .. }) = event else { continue };
+        let Event::Start(Tag::Image { dest_url, .. }) = event else {
+            continue;
+        };
         let raw = &markdown[range.clone()];
         // The destination follows the alt text, so the last match is it.
         if let Some(at) = raw.rfind(dest_url.as_ref()) {
-            spans.push((range.start + at..range.start + at + dest_url.len(), dest_url.to_string()));
+            spans.push((
+                range.start + at..range.start + at + dest_url.len(),
+                dest_url.to_string(),
+            ));
         }
     }
     spans
@@ -61,14 +72,22 @@ mod tests {
     fn lists_remote_images_once_and_skips_local_and_data_ones() {
         let md = "![a](https://x.test/a.png) and ![b](/documents/1/images/b.png)\n\n\
                   ![c](https://x.test/a.png) ![d](data:image/png;base64,AAAA) ![e](http://y.test/e.gif \"title\")";
-        assert_eq!(remote_image_urls(md), vec!["https://x.test/a.png", "http://y.test/e.gif"]);
+        assert_eq!(
+            remote_image_urls(md),
+            vec!["https://x.test/a.png", "http://y.test/e.gif"]
+        );
     }
 
     #[test]
     fn replaces_only_image_destinations() {
         let md = "[the figure](https://x.test/a.png)\n\n![alt [1]](https://x.test/a.png \"t\")";
-        let out = replace_image_destinations(md, |d| (d == "https://x.test/a.png").then(|| "/documents/1/images/h.png".into()));
-        assert_eq!(out, "[the figure](https://x.test/a.png)\n\n![alt [1]](/documents/1/images/h.png \"t\")");
+        let out = replace_image_destinations(md, |d| {
+            (d == "https://x.test/a.png").then(|| "/documents/1/images/h.png".into())
+        });
+        assert_eq!(
+            out,
+            "[the figure](https://x.test/a.png)\n\n![alt [1]](/documents/1/images/h.png \"t\")"
+        );
     }
 
     #[test]

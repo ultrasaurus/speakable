@@ -21,7 +21,10 @@ use std::ops::Range;
 
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
-use crate::{escape_markdown_chars, find_silent_comment, remove_silent_spans, speak_math, split_for_export_with_math_overrides, strip_frontmatter, ExportSentence};
+use crate::{
+    escape_markdown_chars, find_silent_comment, remove_silent_spans, speak_math,
+    split_for_export_with_math_overrides, strip_frontmatter, ExportSentence,
+};
 
 /// Render `markdown` to HTML with each spoken sentence in its own span:
 ///
@@ -81,7 +84,11 @@ pub fn to_html_with_sentence_spans_and_math_overrides(
             if i > 0 {
                 edited.push(' ');
             }
-            push_span_open(&mut edited, sentence_index, times.get(sentence_index).copied().flatten());
+            push_span_open(
+                &mut edited,
+                sentence_index,
+                times.get(sentence_index).copied().flatten(),
+            );
             edited.push_str(&sentence_markdown(sentence));
             edited.push_str("</span>");
             sentence_index += 1;
@@ -102,7 +109,10 @@ fn parser_options() -> Options {
 }
 
 /// `sentences` cut into one slice per block, by `block_lengths`.
-fn group_by_block<'a>(sentences: &'a [ExportSentence], block_lengths: &[usize]) -> Vec<&'a [ExportSentence]> {
+fn group_by_block<'a>(
+    sentences: &'a [ExportSentence],
+    block_lengths: &[usize],
+) -> Vec<&'a [ExportSentence]> {
     let mut out = Vec::with_capacity(block_lengths.len());
     let mut start = 0usize;
     for &len in block_lengths {
@@ -143,11 +153,18 @@ fn render_flat(blocks: &[&[ExportSentence]], times: &[Option<(f64, f64)>]) -> St
             if i > 0 {
                 html.push(' ');
             }
-            push_span_open(&mut html, sentence_index, times.get(sentence_index).copied().flatten());
+            push_span_open(
+                &mut html,
+                sentence_index,
+                times.get(sentence_index).copied().flatten(),
+            );
             let mut inner = String::new();
             pulldown_cmark::html::push_html(&mut inner, Parser::new(&sentence_markdown(sentence)));
             let inner = inner.trim();
-            let inner = inner.strip_prefix("<p>").and_then(|s| s.strip_suffix("</p>")).unwrap_or(inner);
+            let inner = inner
+                .strip_prefix("<p>")
+                .and_then(|s| s.strip_suffix("</p>"))
+                .unwrap_or(inner);
             html.push_str(inner);
             html.push_str("</span>");
             sentence_index += 1;
@@ -170,7 +187,8 @@ fn display_markdown(markdown: &str) -> (String, Vec<Range<usize>>) {
     for line in markdown.lines() {
         let removed = remove_silent_spans(line);
         let trimmed = removed.trim();
-        let emptied_by_strip = removed != line && (trimmed.is_empty() || trimmed.chars().all(|c| c == '#'));
+        let emptied_by_strip =
+            removed != line && (trimmed.is_empty() || trimmed.chars().all(|c| c == '#'));
         let kept = if emptied_by_strip {
             let shown = silent_spans_as_html(line);
             silent_lines.push(offset..offset + shown.len());
@@ -209,7 +227,9 @@ fn silent_spans_as_html(line: &str) -> String {
 }
 
 fn within_any(range: &Range<usize>, outer: &[Range<usize>]) -> bool {
-    outer.iter().any(|o| o.start <= range.start && range.end <= o.end)
+    outer
+        .iter()
+        .any(|o| o.start <= range.start && range.end <= o.end)
 }
 
 /// The source range of each leaf block's text, in document order: one entry
@@ -316,7 +336,11 @@ mod tests {
                 _ => {}
             }
         }
-        out.replace("&amp;", "&").replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&#39;", "'")
+        out.replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&#39;", "'")
     }
 
     fn plain_sentences(md: &str) -> Vec<String> {
@@ -327,7 +351,12 @@ mod tests {
     fn frontmatter_is_left_out_with_the_same_indices() {
         let body = "# Talk\n\nOne here. Two here.\n\n- Three.\n";
         let with = format!("---\ntitle: Talk\nreader: Jane Doe\n---\n{body}");
-        let times = [Some((0.0, 1.0)), Some((1.0, 2.0)), Some((2.0, 3.0)), Some((3.0, 4.0))];
+        let times = [
+            Some((0.0, 1.0)),
+            Some((1.0, 2.0)),
+            Some((2.0, 3.0)),
+            Some((3.0, 4.0)),
+        ];
         let html = to_html_with_sentence_spans(&with, &times);
         assert_eq!(html, to_html_with_sentence_spans(body, &times));
         assert!(!html.contains("reader") && !html.contains("<hr"));
@@ -350,7 +379,12 @@ mod tests {
     fn keeps_structure_and_inline_formatting() {
         let md = "# Title here\n\n- One **bold. Still** bold.\n- Two.\n\n> Quoted text. More.\n\n| a | b |\n|---|---|\n| x | y |\n";
         let html = to_html_with_sentence_spans(md, &[]);
-        assert!(html.contains("<h1><span class=\"sentence\" data-sentence=\"0\">Title here</span></h1>"), "{html}");
+        assert!(
+            html.contains(
+                "<h1><span class=\"sentence\" data-sentence=\"0\">Title here</span></h1>"
+            ),
+            "{html}"
+        );
         assert!(html.contains("<li><span class=\"sentence\" data-sentence=\"1\">One <strong>bold.</strong></span> <span class=\"sentence\" data-sentence=\"2\"><strong>Still</strong> bold.</span></li>"), "{html}");
         assert!(html.contains("<blockquote>"), "{html}");
         assert!(html.contains("<table>"), "{html}");
@@ -359,10 +393,17 @@ mod tests {
 
     #[test]
     fn silent_lines_are_shown_outside_sentences() {
-        let md = "# [Transparency wins]<!--silent-->\n\n[an aside]<!--silent-->\n\nSpoken text here.";
+        let md =
+            "# [Transparency wins]<!--silent-->\n\n[an aside]<!--silent-->\n\nSpoken text here.";
         let html = to_html_with_sentence_spans(md, &[]);
-        assert!(html.contains("<h1><span class=\"silent\">Transparency wins</span></h1>"), "{html}");
-        assert!(html.contains("<p><span class=\"silent\">an aside</span></p>"), "{html}");
+        assert!(
+            html.contains("<h1><span class=\"silent\">Transparency wins</span></h1>"),
+            "{html}"
+        );
+        assert!(
+            html.contains("<p><span class=\"silent\">an aside</span></p>"),
+            "{html}"
+        );
         assert_eq!(span_texts(&html), vec!["Spoken text here.".to_string()]);
     }
 
@@ -396,17 +437,28 @@ mod tests {
             // An ordered item's number is spoken ("1. First item.") but drawn
             // by the list, not shown in the span.
             for (shown, spoken) in shown.iter().zip(&spoken) {
-                assert!(spoken.ends_with(shown.as_str()), "{shown:?} vs {spoken:?}\nmarkdown: {md}\nhtml: {html}");
+                assert!(
+                    spoken.ends_with(shown.as_str()),
+                    "{shown:?} vs {spoken:?}\nmarkdown: {md}\nhtml: {html}"
+                );
             }
         }
     }
 
     #[test]
     fn spans_match_the_split_for_the_sample() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../samples/transparency-wins/talk.md");
-        let Ok(md) = std::fs::read_to_string(path) else { return };
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../samples/transparency-wins/talk.md"
+        );
+        let Ok(md) = std::fs::read_to_string(path) else {
+            return;
+        };
         let html = to_html_with_sentence_spans(&md, &[]);
-        let spoken: Vec<String> = speakable_splitter::split(&crate::to_plain_text(&md)).into_iter().map(|s| s.text).collect();
+        let spoken: Vec<String> = speakable_splitter::split(&crate::to_plain_text(&md))
+            .into_iter()
+            .map(|s| s.text)
+            .collect();
         assert_eq!(span_texts(&html), spoken);
         assert!(html.contains("<span class=\"silent\">Transparency wins</span>"));
     }

@@ -47,7 +47,10 @@ pub fn split_for_export(markdown: &str) -> (Vec<ExportSentence>, Vec<usize>) {
 
 /// Same as `split_for_export`, but with math overrides — see
 /// `to_plain_text_with_math_overrides`.
-pub fn split_for_export_with_math_overrides(markdown: &str, math_overrides: &HashMap<String, String>) -> (Vec<ExportSentence>, Vec<usize>) {
+pub fn split_for_export_with_math_overrides(
+    markdown: &str,
+    math_overrides: &HashMap<String, String>,
+) -> (Vec<ExportSentence>, Vec<usize>) {
     let markdown = strip_silent(strip_frontmatter(markdown));
     let markdown = speak_math(&markdown, math_overrides);
 
@@ -131,7 +134,10 @@ pub fn split_for_export_with_math_overrides(markdown: &str, math_overrides: &Has
                 if let Some(start) = block_start.take() {
                     // Strip leading "## " so markdown_text doesn't include "#"
                     // markers — renderToken already wraps the span in <h1>/<h2>/etc.
-                    let raw = markdown[start..last_end].trim().trim_start_matches('#').trim_start();
+                    let raw = markdown[start..last_end]
+                        .trim()
+                        .trim_start_matches('#')
+                        .trim_start();
                     push_export_block(&mut sentences, &mut block_lengths, &current_plain, raw);
                 }
                 current_plain.clear();
@@ -246,8 +252,10 @@ struct StraddlingSpan {
 /// whose open or close delimiter position falls inside a math span is
 /// discarded here rather than trusted.
 fn inline_straddle_spans(text: &str) -> Vec<StraddlingSpan> {
-    let math_ranges: Vec<std::ops::Range<usize>> =
-        find_math_spans(text).into_iter().map(|m| m.start..m.end).collect();
+    let math_ranges: Vec<std::ops::Range<usize>> = find_math_spans(text)
+        .into_iter()
+        .map(|m| m.start..m.end)
+        .collect();
     let delimiter_in_math = |pos: usize| math_ranges.iter().any(|r| r.contains(&pos));
 
     Parser::new(text)
@@ -286,7 +294,10 @@ fn inline_straddle_spans(text: &str) -> Vec<StraddlingSpan> {
 /// substring search from a cursor that only moves forward — safe because
 /// `speakable_splitter::split` always returns sentences as exact, in-order,
 /// non-overlapping substrings of its input.
-fn locate_sentence_ranges(text: &str, sentences: &[speakable_splitter::Sentence]) -> Vec<std::ops::Range<usize>> {
+fn locate_sentence_ranges(
+    text: &str,
+    sentences: &[speakable_splitter::Sentence],
+) -> Vec<std::ops::Range<usize>> {
     let mut cursor = 0usize;
     sentences
         .iter()
@@ -316,7 +327,10 @@ fn locate_sentence_ranges(text: &str, sentences: &[speakable_splitter::Sentence]
 /// spans), they're closed innermost-first and reopened outermost-first —
 /// the order `pulldown_cmark`'s event stream already gives them in — to
 /// preserve the original nesting on both sides of the cut.
-fn balance_straddling_spans(text: &str, sentences: Vec<speakable_splitter::Sentence>) -> Vec<String> {
+fn balance_straddling_spans(
+    text: &str,
+    sentences: Vec<speakable_splitter::Sentence>,
+) -> Vec<String> {
     let ranges = locate_sentence_ranges(text, &sentences);
     let spans = inline_straddle_spans(text);
     let mut chunks: Vec<String> = sentences.into_iter().map(|s| s.text).collect();
@@ -375,7 +389,10 @@ fn balance_straddling_spans(text: &str, sentences: Vec<speakable_splitter::Sente
 /// function checks against is the exact same one the caller's own
 /// subsequent indexing relies on, rather than two independently-derived
 /// plain-text conversions that could in principle disagree.
-pub fn split_markdown_sentences_for_render(raw: &str, expected_sentence_count: usize) -> Option<Vec<String>> {
+pub fn split_markdown_sentences_for_render(
+    raw: &str,
+    expected_sentence_count: usize,
+) -> Option<Vec<String>> {
     let raw_collapsed = collapse_hard_breaks(raw);
     let raw_sentences = speakable_splitter::split(&raw_collapsed);
 
@@ -390,7 +407,12 @@ pub fn split_markdown_sentences_for_render(raw: &str, expected_sentence_count: u
     // chunk is independent by this point, and a plain per-chunk `replace`
     // needs no position tracking across the cuts `balance_straddling_spans`
     // just made.
-    Some(chunks.into_iter().map(|c| c.replace(HARD_BREAK_PLACEHOLDER, "<br>")).collect())
+    Some(
+        chunks
+            .into_iter()
+            .map(|c| c.replace(HARD_BREAK_PLACEHOLDER, "<br>"))
+            .collect(),
+    )
 }
 
 fn push_export_block(
@@ -483,9 +505,15 @@ pub fn from_plain_text(text: &str) -> String {
 /// the whole formula. A real bug hit in production: `\(t < 0\)` round-
 /// tripped through ingest as `\(t \< 0\)`, which failed to render at all.
 pub fn escape_literal_angle_brackets(text: &str) -> String {
-    let math_ranges: Vec<(usize, usize)> =
-        find_math_spans(text).into_iter().map(|s| (s.start, s.end)).collect();
-    let in_math = |pos: usize| math_ranges.iter().any(|&(start, end)| pos >= start && pos < end);
+    let math_ranges: Vec<(usize, usize)> = find_math_spans(text)
+        .into_iter()
+        .map(|s| (s.start, s.end))
+        .collect();
+    let in_math = |pos: usize| {
+        math_ranges
+            .iter()
+            .any(|&(start, end)| pos >= start && pos < end)
+    };
 
     let mut in_fence = false;
     let mut out = String::with_capacity(text.len());
@@ -707,7 +735,9 @@ pub fn drop_empty_sections(text: &str) -> String {
         if let Some(level) = atx_level(line) {
             return Line::Heading(level);
         }
-        let item = line.strip_prefix(['-', '*', '+']).and_then(|rest| rest.strip_prefix(' '));
+        let item = line
+            .strip_prefix(['-', '*', '+'])
+            .and_then(|rest| rest.strip_prefix(' '));
         match item.map(str::trim_start).and_then(atx_level) {
             Some(_) => Line::HeadingItem,
             None => Line::Other,
@@ -716,20 +746,28 @@ pub fn drop_empty_sections(text: &str) -> String {
     fn atx_level(line: &str) -> Option<usize> {
         let level = line.chars().take_while(|&c| c == '#').count();
         let rest = &line[level..];
-        ((1..=6).contains(&level) && (rest.is_empty() || rest.starts_with([' ', '\t']))).then_some(level)
+        ((1..=6).contains(&level) && (rest.is_empty() || rest.starts_with([' ', '\t'])))
+            .then_some(level)
     }
 
     let mut lines: Vec<&str> = text.lines().collect();
     let mut dropped_any = false;
     loop {
         let mut in_fence = false;
-        let kinds: Vec<Line> = lines.iter().map(|line| {
-            if line.trim_start().starts_with("```") || line.trim_start().starts_with("~~~") {
-                in_fence = !in_fence;
-                return Line::Other;
-            }
-            if in_fence { Line::Other } else { classify(line) }
-        }).collect();
+        let kinds: Vec<Line> = lines
+            .iter()
+            .map(|line| {
+                if line.trim_start().starts_with("```") || line.trim_start().starts_with("~~~") {
+                    in_fence = !in_fence;
+                    return Line::Other;
+                }
+                if in_fence {
+                    Line::Other
+                } else {
+                    classify(line)
+                }
+            })
+            .collect();
         let next_non_blank = |from: usize| (from..kinds.len()).find(|&j| kinds[j] != Line::Blank);
 
         let mut drop = vec![false; lines.len()];
@@ -752,14 +790,17 @@ pub fn drop_empty_sections(text: &str) -> String {
                 }
                 Line::HeadingItem => {
                     let mut end = i;
-                    while end < lines.len() && matches!(kinds[end], Line::HeadingItem | Line::Blank) {
+                    while end < lines.len() && matches!(kinds[end], Line::HeadingItem | Line::Blank)
+                    {
                         end += 1;
                     }
                     // Indented under an item, or more items: the list has more than
                     // headings.
                     let continued = end < lines.len()
                         && (lines[end].starts_with([' ', '\t'])
-                            || lines[end].strip_prefix(['-', '*', '+']).is_some_and(|r| r.starts_with(' ')));
+                            || lines[end]
+                                .strip_prefix(['-', '*', '+'])
+                                .is_some_and(|r| r.starts_with(' ')));
                     let starts_list = i == 0
                         || kinds[i - 1] == Line::Blank
                         || matches!(kinds[i - 1], Line::Heading(_));
@@ -775,7 +816,12 @@ pub fn drop_empty_sections(text: &str) -> String {
             break;
         }
         dropped_any = true;
-        lines = lines.into_iter().zip(drop).filter(|(_, d)| !d).map(|(l, _)| l).collect();
+        lines = lines
+            .into_iter()
+            .zip(drop)
+            .filter(|(_, d)| !d)
+            .map(|(l, _)| l)
+            .collect();
     }
 
     if !dropped_any {
@@ -824,7 +870,12 @@ pub fn insert_missing_table_separator(text: &str) -> String {
         if line.starts_with('|') && !prev_is_table {
             if let Some(&next) = lines.get(i + 1) {
                 if next.starts_with('|') && !is_table_separator_row(next) {
-                    let cols = line.bytes().filter(|&b| b == b'|').count().saturating_sub(1).max(1);
+                    let cols = line
+                        .bytes()
+                        .filter(|&b| b == b'|')
+                        .count()
+                        .saturating_sub(1)
+                        .max(1);
                     out.push(format!("|{}", "---|".repeat(cols)));
                 }
             }
@@ -943,7 +994,12 @@ pub fn escape_isolated_list_markers(text: &str) -> String {
             }
             let (marker_text, rest) = line.split_at(marker_len);
             let last_char_len = marker_text.chars().last().map_or(0, char::len_utf8);
-            format!("{}\\{}{}", &marker_text[..marker_len - last_char_len], &marker_text[marker_len - last_char_len..], rest)
+            format!(
+                "{}\\{}{}",
+                &marker_text[..marker_len - last_char_len],
+                &marker_text[marker_len - last_char_len..],
+                rest
+            )
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -957,9 +1013,37 @@ pub fn escape_isolated_list_markers(text: &str) -> String {
 pub fn is_commonmark_escapable(c: char) -> bool {
     matches!(
         c,
-        '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.'
-            | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '_'
-            | '`' | '{' | '|' | '}' | '~'
+        '!' | '"'
+            | '#'
+            | '$'
+            | '%'
+            | '&'
+            | '\''
+            | '('
+            | ')'
+            | '*'
+            | '+'
+            | ','
+            | '-'
+            | '.'
+            | '/'
+            | ':'
+            | ';'
+            | '<'
+            | '='
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '_'
+            | '`'
+            | '{'
+            | '|'
+            | '}'
+            | '~'
     )
 }
 
@@ -983,7 +1067,9 @@ fn leading_marker_len(line: &str) -> usize {
     }
 
     let digit_len = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
-    if digit_len > 0 && bytes.get(digit_len) == Some(&b'.') && followed_by_space_or_eol(digit_len + 1)
+    if digit_len > 0
+        && bytes.get(digit_len) == Some(&b'.')
+        && followed_by_space_or_eol(digit_len + 1)
     {
         return digit_len + 1;
     }
@@ -1023,7 +1109,8 @@ fn escape_markdown_chars(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut prev: Option<char> = None;
     for (i, c) in text.chars().enumerate() {
-        let escape = if (i >= marker_len && matches!(c, '-' | '.' | '+')) || matches!(c, ',' | ')') {
+        let escape = if (i >= marker_len && matches!(c, '-' | '.' | '+')) || matches!(c, ',' | ')')
+        {
             false
         } else if c == '(' {
             prev == Some(']')
@@ -1046,7 +1133,10 @@ const HTML_TAGS: &str = include_str!("html_tags.txt");
 /// (e.g. `<sup>`, `</b>`), as opposed to a non-tag `<...>` marker like
 /// `<Ref-1>` that authors expect to be read literally.
 fn is_known_html_tag(html: &str) -> bool {
-    let inner = html.trim_start_matches('<').trim_end_matches("/>").trim_end_matches('>');
+    let inner = html
+        .trim_start_matches('<')
+        .trim_end_matches("/>")
+        .trim_end_matches('>');
     let name = inner.strip_prefix('/').unwrap_or(inner);
     let name = name.split_whitespace().next().unwrap_or("");
     let name = name.to_ascii_lowercase();
@@ -1062,7 +1152,10 @@ pub fn to_plain_text(markdown: &str) -> String {
 /// math span's `math_to_speech::speak_with_overrides` call — see its doc
 /// comment for the token/replacement shape. Empty map behaves exactly like
 /// `to_plain_text`.
-pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMap<String, String>) -> String {
+pub fn to_plain_text_with_math_overrides(
+    markdown: &str,
+    math_overrides: &HashMap<String, String>,
+) -> String {
     let markdown = strip_silent(strip_frontmatter(markdown));
     let markdown = speak_math(&markdown, math_overrides);
 
@@ -1145,7 +1238,9 @@ pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMa
             // rendered table (that comes from `content`/markdown,
             // untouched here) but gives TTS a real per-row pause and
             // stops the merge at the row, not the whole table.
-            Event::End(TagEnd::TableHead | TagEnd::TableRow) if blocks.len() > table_row_start_len => {
+            Event::End(TagEnd::TableHead | TagEnd::TableRow)
+                if blocks.len() > table_row_start_len =>
+            {
                 if let Some(last) = blocks.last_mut() {
                     if !matches!(last.chars().last(), Some('.' | '?' | '!')) {
                         last.push('.');
@@ -1162,17 +1257,16 @@ pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMa
             // inline comment (one event, even when it wraps across
             // lines) is never spoken: `split_for_export` drops it too,
             // and the rendered document hides it.
-            Event::InlineHtml(html) if !in_image && !html.starts_with("<!--") && !is_known_html_tag(&html) => {
+            Event::InlineHtml(html)
+                if !in_image && !html.starts_with("<!--") && !is_known_html_tag(&html) =>
+            {
                 current.push_str(&html);
             }
             Event::SoftBreak | Event::HardBreak => {
                 current.push(' ');
             }
             Event::End(
-                TagEnd::Paragraph
-                | TagEnd::Heading(_)
-                | TagEnd::Item
-                | TagEnd::TableCell,
+                TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::Item | TagEnd::TableCell,
             ) => {
                 push_block(&mut blocks, &current);
                 current.clear();
@@ -1204,7 +1298,9 @@ pub fn strip_frontmatter(markdown: &str) -> &str {
     let body = markdown.strip_prefix('\u{feff}').unwrap_or(markdown);
     let mut lines = body.split_inclusive('\n');
     let is_line = |line: &str, marker: &str| line.trim_end() == marker;
-    let Some(first) = lines.next() else { return markdown };
+    let Some(first) = lines.next() else {
+        return markdown;
+    };
     if !first.ends_with('\n') || !is_line(first, "---") {
         return markdown;
     }
@@ -1235,8 +1331,8 @@ fn strip_silent(markdown: &str) -> String {
     for line in markdown.lines() {
         let removed = remove_silent_spans(line);
         let trimmed = removed.trim();
-        let emptied_by_strip = removed != line
-            && (trimmed.is_empty() || trimmed.chars().all(|c| c == '#'));
+        let emptied_by_strip =
+            removed != line && (trimmed.is_empty() || trimmed.chars().all(|c| c == '#'));
         if emptied_by_strip {
             continue;
         }
@@ -1325,7 +1421,10 @@ pub fn speak_math(markdown: &str, math_overrides: &HashMap<String, String>) -> S
         // No space after an opening emphasis marker (`*\(y\) is ...*`):
         // `* y` can't open emphasis, so both markers would survive into the
         // plain text as literal asterisks for TTS to read.
-        if !out.is_empty() && !out.ends_with(char::is_whitespace) && !ends_with_emphasis_opener(&out) {
+        if !out.is_empty()
+            && !out.ends_with(char::is_whitespace)
+            && !ends_with_emphasis_opener(&out)
+        {
             out.push(' ');
         }
         out.push_str(&phrase);
@@ -1341,7 +1440,9 @@ pub fn speak_math(markdown: &str, math_overrides: &HashMap<String, String>) -> S
         // "nth" reads as one word and "2nd"/"1th" become "second"/"first"
         // in the normalizer's ordinal pass.
         let after = &rest[span.end..];
-        if after.chars().next().is_some_and(|c| c.is_alphanumeric()) && !starts_with_ordinal_suffix(after) {
+        if after.chars().next().is_some_and(|c| c.is_alphanumeric())
+            && !starts_with_ordinal_suffix(after)
+        {
             out.push(' ');
         }
         rest = after;
@@ -1356,15 +1457,23 @@ pub fn speak_math(markdown: &str, math_overrides: &HashMap<String, String>) -> S
 /// digit (`x*`, `snake_`) isn't treated as an opener.
 fn ends_with_emphasis_opener(s: &str) -> bool {
     let before = s.trim_end_matches(['*', '_', '~']);
-    before.len() < s.len() && !before.chars().next_back().is_some_and(|c| c.is_alphanumeric())
+    before.len() < s.len()
+        && !before
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_alphanumeric())
 }
 
 /// Whether `s` begins with `st`/`nd`/`rd`/`th` (any case) as a whole word —
 /// `th` or `th sample` qualifies, `that` or `stuff` doesn't.
 fn starts_with_ordinal_suffix(s: &str) -> bool {
-    let Some(suffix) = s.get(..2) else { return false };
-    matches!(suffix.to_ascii_lowercase().as_str(), "st" | "nd" | "rd" | "th")
-        && !s[2..].chars().next().is_some_and(|c| c.is_alphanumeric())
+    let Some(suffix) = s.get(..2) else {
+        return false;
+    };
+    matches!(
+        suffix.to_ascii_lowercase().as_str(),
+        "st" | "nd" | "rd" | "th"
+    ) && !s[2..].chars().next().is_some_and(|c| c.is_alphanumeric())
 }
 
 /// One math span found in source markdown — its byte range plus the
@@ -1385,13 +1494,19 @@ struct MathSpanMatch {
 /// others beyond "whichever starts first wins."
 fn find_next_math_span(s: &str) -> Option<MathSpanMatch> {
     let mut best: Option<MathSpanMatch> = None;
-    let mut consider = |span: Option<(usize, usize)>, open_len: usize, close_len: usize, display: bool| {
-        let Some((start, end)) = span else { return };
-        if best.as_ref().map(|b| start < b.start).unwrap_or(true) {
-            let tex = s[start + open_len..end - close_len].trim().to_string();
-            best = Some(MathSpanMatch { start, end, tex, display });
-        }
-    };
+    let mut consider =
+        |span: Option<(usize, usize)>, open_len: usize, close_len: usize, display: bool| {
+            let Some((start, end)) = span else { return };
+            if best.as_ref().map(|b| start < b.start).unwrap_or(true) {
+                let tex = s[start + open_len..end - close_len].trim().to_string();
+                best = Some(MathSpanMatch {
+                    start,
+                    end,
+                    tex,
+                    display,
+                });
+            }
+        };
     consider(find_bracket_span(s, "\\[", "\\]"), 2, 2, true);
     consider(find_bracket_span(s, "\\(", "\\)"), 2, 2, false);
     consider(find_dollar_block_span(s), 2, 2, true);
@@ -1421,7 +1536,12 @@ pub fn find_math_spans(markdown: &str) -> Vec<MathSpan> {
     let mut base = 0;
     let mut rest = markdown;
     while let Some(m) = find_next_math_span(rest) {
-        spans.push(MathSpan { start: base + m.start, end: base + m.end, tex: m.tex, display: m.display });
+        spans.push(MathSpan {
+            start: base + m.start,
+            end: base + m.end,
+            tex: m.tex,
+            display: m.display,
+        });
         base += m.end;
         rest = &rest[m.end..];
     }
@@ -1467,7 +1587,10 @@ fn find_dollar_inline_span(s: &str) -> Option<(usize, usize)> {
             i = start + 1;
             continue;
         }
-        let opens_on_nonwhitespace = s[start + 1..].chars().next().is_some_and(|c| !c.is_whitespace());
+        let opens_on_nonwhitespace = s[start + 1..]
+            .chars()
+            .next()
+            .is_some_and(|c| !c.is_whitespace());
         if !opens_on_nonwhitespace {
             i = start + 1;
             continue;
@@ -1481,7 +1604,10 @@ fn find_dollar_inline_span(s: &str) -> Option<(usize, usize)> {
                 j = close + 1;
                 continue;
             }
-            let closes_on_nonwhitespace = s[..close].chars().next_back().is_some_and(|c| !c.is_whitespace());
+            let closes_on_nonwhitespace = s[..close]
+                .chars()
+                .next_back()
+                .is_some_and(|c| !c.is_whitespace());
             let spans_blank_line = s[start + 1..close].contains("\n\n");
             if closes_on_nonwhitespace && !spans_blank_line {
                 return Some((start, close + 1));
@@ -1507,8 +1633,14 @@ mod tests {
 
     #[test]
     fn strip_frontmatter_removes_a_leading_yaml_block() {
-        assert_eq!(strip_frontmatter("---\nreader: Jane Doe\n---\n# Hi\n\nText."), "# Hi\n\nText.");
-        assert_eq!(strip_frontmatter("\u{feff}---\r\ntitle: A\r\n...\r\nText."), "Text.");
+        assert_eq!(
+            strip_frontmatter("---\nreader: Jane Doe\n---\n# Hi\n\nText."),
+            "# Hi\n\nText."
+        );
+        assert_eq!(
+            strip_frontmatter("\u{feff}---\r\ntitle: A\r\n...\r\nText."),
+            "Text."
+        );
         assert_eq!(strip_frontmatter("---\n---\nText."), "Text.");
         assert_eq!(strip_frontmatter("---\nreader: Jane Doe\n---"), "");
     }
@@ -1556,7 +1688,10 @@ mod tests {
         // Trailing periods aren't a leading list-marker position, so they're
         // left unescaped (see escape_markdown_chars_only_escapes_leading_markers).
         assert_eq!(from_plain_text(plain), "Para one.\n\nPara two.");
-        assert_eq!(to_plain_text(&from_plain_text(plain)), "Para one.\nPara two.");
+        assert_eq!(
+            to_plain_text(&from_plain_text(plain)),
+            "Para one.\nPara two."
+        );
     }
 
     #[test]
@@ -1576,7 +1711,10 @@ mod tests {
     #[test]
     fn trim_line_indentation_preserves_indentation_inside_fenced_code() {
         let raw = "```\n    def f():\n        return 1\n```";
-        assert_eq!(trim_line_indentation(raw), "```\n    def f():\n        return 1\n```");
+        assert_eq!(
+            trim_line_indentation(raw),
+            "```\n    def f():\n        return 1\n```"
+        );
     }
 
     #[test]
@@ -1597,7 +1735,10 @@ mod tests {
     #[test]
     fn trim_line_indentation_strips_indented_item_after_non_item() {
         let raw = "Intro.\n    - Item.\n\n    - Loose item.";
-        assert_eq!(trim_line_indentation(raw), "Intro.\n- Item.\n\n- Loose item.");
+        assert_eq!(
+            trim_line_indentation(raw),
+            "Intro.\n- Item.\n\n- Loose item."
+        );
     }
 
     // ── close_unclosed_table_rows ───────────────────────────────────────
@@ -1607,7 +1748,10 @@ mod tests {
         let md = "## Similar articles\n\n- One.\n- Two.\n\n## Publication types\n\n## MeSH terms\n\n\
                   ## LinkOut - more resources\n\n- ### Full Text Sources\n- ### Other Literature Sources\n\
                   - ### Medical\n- ### Miscellaneous\n";
-        assert_eq!(drop_empty_sections(md), "## Similar articles\n\n- One.\n- Two.\n");
+        assert_eq!(
+            drop_empty_sections(md),
+            "## Similar articles\n\n- One.\n- Two.\n"
+        );
     }
 
     #[test]
@@ -1622,7 +1766,10 @@ mod tests {
 
     #[test]
     fn drop_empty_sections_drops_a_heading_before_a_same_level_one() {
-        assert_eq!(drop_empty_sections("## A\n\n## B\n\nText.\n"), "## B\n\nText.\n");
+        assert_eq!(
+            drop_empty_sections("## A\n\n## B\n\nText.\n"),
+            "## B\n\nText.\n"
+        );
         assert_eq!(drop_empty_sections("Text.\n\n## End\n"), "Text.\n");
     }
 
@@ -1666,7 +1813,8 @@ mod tests {
 
     #[test]
     fn split_glued_table_header_keeps_stray_prefix_as_own_paragraph() {
-        let raw = "j| Age of onset | Men | Women | ||||\n|---|---|---|---|---|---|---|\n| Naive | |";
+        let raw =
+            "j| Age of onset | Men | Women | ||||\n|---|---|---|---|---|---|---|\n| Naive | |";
         assert_eq!(
             split_glued_table_header(raw),
             "j\n\n| Age of onset | Men | Women | ||||\n|---|---|---|---|---|---|---|\n| Naive | |"
@@ -1780,7 +1928,10 @@ mod tests {
     #[test]
     fn escape_literal_angle_brackets_escapes_bare_tag_like_text() {
         let raw = "presses the <Select> button.";
-        assert_eq!(escape_literal_angle_brackets(raw), "presses the \\<Select\\> button.");
+        assert_eq!(
+            escape_literal_angle_brackets(raw),
+            "presses the \\<Select\\> button."
+        );
     }
 
     #[test]
@@ -1801,7 +1952,10 @@ mod tests {
     #[test]
     fn escape_literal_angle_brackets_preserves_blockquote_marker() {
         let raw = "> a quote with <Select> inside";
-        assert_eq!(escape_literal_angle_brackets(raw), "> a quote with \\<Select\\> inside");
+        assert_eq!(
+            escape_literal_angle_brackets(raw),
+            "> a quote with \\<Select\\> inside"
+        );
     }
 
     // A real bug: `<`/`>` inside math are comparison operators, not
@@ -1822,7 +1976,10 @@ mod tests {
     #[test]
     fn escape_literal_angle_brackets_still_escapes_outside_math() {
         let raw = r"Use \(x\) not <Select> for this.";
-        assert_eq!(escape_literal_angle_brackets(raw), r"Use \(x\) not \<Select\> for this.");
+        assert_eq!(
+            escape_literal_angle_brackets(raw),
+            r"Use \(x\) not \<Select\> for this."
+        );
     }
 
     // ── split_markdown_sentences_for_render ─────────────────────────────
@@ -1833,7 +1990,10 @@ mod tests {
         let plain_count = speakable_splitter::split(&to_plain_text(raw)).len();
         assert_eq!(plain_count, 2);
         let chunks = split_markdown_sentences_for_render(raw, plain_count).unwrap();
-        assert_eq!(chunks, vec!["A *no straddle* sentence.", "Another plain one."]);
+        assert_eq!(
+            chunks,
+            vec!["A *no straddle* sentence.", "Another plain one."]
+        );
     }
 
     // Real reported bug: a poem (or anything else) with a hard break
@@ -1850,7 +2010,10 @@ mod tests {
     fn split_markdown_sentences_hard_break_between_two_sentences_does_not_merge_them() {
         let raw = "Roses are red.  \nViolets are blue.";
         let plain_count = speakable_splitter::split(&to_plain_text(raw)).len();
-        assert_eq!(plain_count, 2, "sanity check: to_plain_text sees this as two sentences");
+        assert_eq!(
+            plain_count, 2,
+            "sanity check: to_plain_text sees this as two sentences"
+        );
         let chunks = split_markdown_sentences_for_render(raw, plain_count).unwrap();
         // The marker (and so the restored <br>) lands at the start of the
         // second chunk, not the end of the first — the sentence boundary
@@ -1893,7 +2056,10 @@ mod tests {
         let plain_count = speakable_splitter::split(&to_plain_text(raw)).len();
         let chunks = split_markdown_sentences_for_render(raw, plain_count).unwrap();
         for chunk in &chunks {
-            assert!(!chunk.contains("**"), "unexpected doubled delimiter in {chunk:?}");
+            assert!(
+                !chunk.contains("**"),
+                "unexpected doubled delimiter in {chunk:?}"
+            );
         }
         assert_eq!(
             chunks,
@@ -1924,10 +2090,26 @@ mod tests {
         // Every chunk still contains exactly the math/emphasis markers
         // that were actually in the source at that position — no asterisk
         // stolen into a synthetic close/reopen.
-        assert!(chunks[0].contains(r"\(*\)"), "first \\(*\\) intact: {:?}", chunks[0]);
-        assert!(chunks[0].contains("*convolution*"), "emphasis intact: {:?}", chunks[0]);
-        assert!(chunks[1].contains(r"\(*\)"), "second \\(*\\) intact: {:?}", chunks[1]);
-        assert!(!chunks[1].starts_with('*'), "no bogus reopened emphasis: {:?}", chunks[1]);
+        assert!(
+            chunks[0].contains(r"\(*\)"),
+            "first \\(*\\) intact: {:?}",
+            chunks[0]
+        );
+        assert!(
+            chunks[0].contains("*convolution*"),
+            "emphasis intact: {:?}",
+            chunks[0]
+        );
+        assert!(
+            chunks[1].contains(r"\(*\)"),
+            "second \\(*\\) intact: {:?}",
+            chunks[1]
+        );
+        assert!(
+            !chunks[1].starts_with('*'),
+            "no bogus reopened emphasis: {:?}",
+            chunks[1]
+        );
     }
 
     #[test]
@@ -1952,7 +2134,10 @@ mod tests {
         for chunk in &chunks {
             let mut html = String::new();
             pulldown_cmark::html::push_html(&mut html, Parser::new(chunk));
-            assert!(html.contains("<em>"), "expected {chunk:?} to render as emphasis, got {html:?}");
+            assert!(
+                html.contains("<em>"),
+                "expected {chunk:?} to render as emphasis, got {html:?}"
+            );
         }
         assert!(chunks[0].ends_with("*Vols. 7 & 8, 7:326.*"));
         assert!(chunks[1].starts_with("*Hereafter"));
@@ -1977,11 +2162,17 @@ mod tests {
         // structure, not just that the delimiter counts happen to match.
         let mut html0 = String::new();
         pulldown_cmark::html::push_html(&mut html0, Parser::new(&chunks[0]));
-        assert_eq!(html0, "<p><em>Alpha starts here <strong>Bravo continues onward.</strong></em></p>\n");
+        assert_eq!(
+            html0,
+            "<p><em>Alpha starts here <strong>Bravo continues onward.</strong></em></p>\n"
+        );
 
         let mut html1 = String::new();
         pulldown_cmark::html::push_html(&mut html1, Parser::new(&chunks[1]));
-        assert_eq!(html1, "<p><em><strong>Charlie finishes eventually</strong> Delta wraps things up.</em></p>\n");
+        assert_eq!(
+            html1,
+            "<p><em><strong>Charlie finishes eventually</strong> Delta wraps things up.</em></p>\n"
+        );
     }
 
     #[test]
@@ -2006,7 +2197,10 @@ mod tests {
         for chunk in &chunks {
             let mut html = String::new();
             pulldown_cmark::html::push_html(&mut html, Parser::new(chunk));
-            assert!(html.contains("<a href=\"https://example.com\""), "expected {chunk:?} to render as a link, got {html:?}");
+            assert!(
+                html.contains("<a href=\"https://example.com\""),
+                "expected {chunk:?} to render as a link, got {html:?}"
+            );
         }
     }
 
@@ -2042,7 +2236,10 @@ mod tests {
         for chunk in &chunks {
             let mut html = String::new();
             pulldown_cmark::html::push_html(&mut html, Parser::new(chunk));
-            assert!(html.contains("<em><a href=\"https://example.com\""), "expected {chunk:?} to render as an italicized link, got {html:?}");
+            assert!(
+                html.contains("<em><a href=\"https://example.com\""),
+                "expected {chunk:?} to render as an italicized link, got {html:?}"
+            );
         }
     }
 
@@ -2108,10 +2305,16 @@ mod tests {
     #[test]
     fn escape_markdown_chars_escapes_open_paren_only_right_after_close_bracket() {
         // `](` would otherwise form a link/image destination.
-        assert_eq!(escape_markdown_chars("see [ref](url) here"), "see \\[ref\\]\\(url) here");
+        assert_eq!(
+            escape_markdown_chars("see [ref](url) here"),
+            "see \\[ref\\]\\(url) here"
+        );
         // A space (or anything else) between `]` and `(` isn't link syntax,
         // so `(` stays unescaped.
-        assert_eq!(escape_markdown_chars("see [ref] (url) here"), "see \\[ref\\] (url) here");
+        assert_eq!(
+            escape_markdown_chars("see [ref] (url) here"),
+            "see \\[ref\\] (url) here"
+        );
     }
 
     #[test]
@@ -2125,7 +2328,10 @@ mod tests {
 
     #[test]
     fn escape_markdown_chars_escapes_leading_ordered_marker() {
-        assert_eq!(escape_markdown_chars("1. Introduction"), "1\\. Introduction");
+        assert_eq!(
+            escape_markdown_chars("1. Introduction"),
+            "1\\. Introduction"
+        );
         assert_eq!(escape_markdown_chars("42. Answer"), "42\\. Answer");
         // Not a marker without a following space — a bare decimal number.
         assert_eq!(escape_markdown_chars("3.14 is pi"), "3.14 is pi");
@@ -2146,7 +2352,10 @@ mod tests {
     #[test]
     fn to_plain_text_keeps_ordered_list_numbers() {
         let md = "1. First item\n2. Second item\n3. Third item\n";
-        assert_eq!(to_plain_text(md), "1. First item\n2. Second item\n3. Third item");
+        assert_eq!(
+            to_plain_text(md),
+            "1. First item\n2. Second item\n3. Third item"
+        );
     }
 
     // A bullet item whose content itself starts with "N. " (a common
@@ -2207,7 +2416,11 @@ mod tests {
     }
 
     fn export_markdown_texts(md: &str) -> Vec<String> {
-        split_for_export(md).0.into_iter().map(|s| s.markdown_text).collect()
+        split_for_export(md)
+            .0
+            .into_iter()
+            .map(|s| s.markdown_text)
+            .collect()
     }
 
     // The export reader draws a list's own bullet/number, so an item's
@@ -2222,14 +2435,20 @@ mod tests {
 
     #[test]
     fn split_for_export_loose_list_items_exclude_marker() {
-        assert_eq!(export_markdown_texts("1. Note one.\n\n2. Note two."), vec!["Note one.", "Note two."]);
+        assert_eq!(
+            export_markdown_texts("1. Note one.\n\n2. Note two."),
+            vec!["Note one.", "Note two."]
+        );
     }
 
     #[test]
     fn split_for_export_list_item_keeps_leading_emphasis_and_links() {
         assert_eq!(
             export_markdown_texts("- *Emphasized* start.\n- [A link](https://example.com) start."),
-            vec!["*Emphasized* start.", "[A link](https://example.com) start."],
+            vec![
+                "*Emphasized* start.",
+                "[A link](https://example.com) start."
+            ],
         );
     }
 
@@ -2261,9 +2480,12 @@ mod tests {
             "- 1. Sakai F, Igarashi H. Prevalence.\n- 2. Noseda R. A mechanism.\n",
             "## Footnotes\n\n1. Most of this is derived from Yost (2000).\n",
         ] {
-            let exported: Vec<String> = split_for_export(md).0.into_iter().map(|s| s.text).collect();
-            let stored: Vec<String> =
-                speakable_splitter::split(&to_plain_text(md)).into_iter().map(|s| s.text).collect();
+            let exported: Vec<String> =
+                split_for_export(md).0.into_iter().map(|s| s.text).collect();
+            let stored: Vec<String> = speakable_splitter::split(&to_plain_text(md))
+                .into_iter()
+                .map(|s| s.text)
+                .collect();
             assert_eq!(exported, stored, "{md:?}");
         }
     }
@@ -2280,9 +2502,12 @@ mod tests {
     #[test]
     fn split_for_export_matches_to_plain_text_for_nested_lists() {
         for md in NESTED_LIST_MDS {
-            let exported: Vec<String> = split_for_export(md).0.into_iter().map(|s| s.text).collect();
-            let stored: Vec<String> =
-                speakable_splitter::split(&to_plain_text(md)).into_iter().map(|s| s.text).collect();
+            let exported: Vec<String> =
+                split_for_export(md).0.into_iter().map(|s| s.text).collect();
+            let stored: Vec<String> = speakable_splitter::split(&to_plain_text(md))
+                .into_iter()
+                .map(|s| s.text)
+                .collect();
             assert_eq!(exported, stored, "{md:?}");
         }
     }
@@ -2297,16 +2522,28 @@ mod tests {
             to_plain_text(NESTED_LIST_MDS[1]),
             "Parent one.\nChild one.\nChild two.\nGrandchild.\nParent two."
         );
-        assert_eq!(to_plain_text(NESTED_LIST_MDS[3]), "1. Ordered parent.\nChild.\n2. Second parent.");
-        assert_eq!(to_plain_text(NESTED_LIST_MDS[5]), "1. Nested first under a number.\n2. Plain.");
+        assert_eq!(
+            to_plain_text(NESTED_LIST_MDS[3]),
+            "1. Ordered parent.\nChild.\n2. Second parent."
+        );
+        assert_eq!(
+            to_plain_text(NESTED_LIST_MDS[5]),
+            "1. Nested first under a number.\n2. Plain."
+        );
     }
 
     #[test]
     fn split_for_export_nested_list_parent_markdown_excludes_children() {
         let (sentences, block_lengths) = split_for_export(NESTED_LIST_MDS[0]);
         assert_eq!(block_lengths, vec![1, 1, 1]);
-        assert_eq!(sentences[0].markdown_text, "**Cut:** a fixed cut where Kokoro holds energy.");
-        assert_eq!(sentences[1].markdown_text, "Each edge eases in over half an octave.");
+        assert_eq!(
+            sentences[0].markdown_text,
+            "**Cut:** a fixed cut where Kokoro holds energy."
+        );
+        assert_eq!(
+            sentences[1].markdown_text,
+            "Each edge eases in over half an octave."
+        );
     }
 
     #[test]
@@ -2330,7 +2567,10 @@ mod tests {
 
     #[test]
     fn math_keeps_ordinal_suffix_glued() {
-        assert_eq!(to_plain_text(r"the \(n\)th output sample"), "the nth output sample");
+        assert_eq!(
+            to_plain_text(r"the \(n\)th output sample"),
+            "the nth output sample"
+        );
         assert_eq!(to_plain_text(r"the \(k\)TH entry"), "the kTH entry");
         assert_eq!(to_plain_text(r"the \(2\)nd term"), "the 2nd term");
         assert_eq!(to_plain_text(r"the \(n\)th."), "the nth.");
@@ -2363,7 +2603,10 @@ mod tests {
     fn to_plain_text_applies_math_overrides() {
         let md = "$h * x$";
         let overrides = HashMap::from([("*".to_string(), "convolved with".to_string())]);
-        assert_eq!(to_plain_text_with_math_overrides(md, &overrides), "h convolved with x");
+        assert_eq!(
+            to_plain_text_with_math_overrides(md, &overrides),
+            "h convolved with x"
+        );
         // Unaffected without overrides.
         assert_eq!(to_plain_text(md), "h asterisk x");
     }
@@ -2375,7 +2618,10 @@ mod tests {
     #[test]
     fn speaks_supported_inline_math() {
         let md = "The energy is $E = mc^2$ exactly.";
-        assert_eq!(to_plain_text(md), "The energy is E equals mc squared exactly.");
+        assert_eq!(
+            to_plain_text(md),
+            "The energy is E equals mc squared exactly."
+        );
     }
 
     // A formula immediately followed by punctuation must glue directly to
@@ -2526,7 +2772,10 @@ mod tests {
         let md = "| Name | Symbol |\n|---|---|\n\
                   | sound power per unit area | I |\n\
                   | pressure | p |";
-        assert_eq!(to_plain_text(md), "Name\nSymbol.\nsound power per unit area\nI.\npressure\np.");
+        assert_eq!(
+            to_plain_text(md),
+            "Name\nSymbol.\nsound power per unit area\nI.\npressure\np."
+        );
     }
 
     #[test]
@@ -2581,7 +2830,13 @@ mod tests {
         let md = "# Title\n\n- one\n- two";
         let (sentences, block_lengths) = split_for_export(md);
         assert_eq!(block_lengths, vec![1, 1, 1]);
-        assert_eq!(sentences.iter().map(|s| s.text.as_str()).collect::<Vec<_>>(), vec!["Title", "one", "two"]);
+        assert_eq!(
+            sentences
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Title", "one", "two"]
+        );
     }
 
     #[test]
@@ -2589,8 +2844,10 @@ mod tests {
         let md = "## Section Two\n\nSome text.";
         let (sentences, _) = split_for_export(md);
         assert_eq!(sentences[0].text, "Section Two");
-        assert_eq!(sentences[0].markdown_text, "Section Two",
-            "markdown_text should not include '##' — renderToken wraps the span in <h2>");
+        assert_eq!(
+            sentences[0].markdown_text, "Section Two",
+            "markdown_text should not include '##' — renderToken wraps the span in <h2>"
+        );
     }
 
     #[test]
@@ -2599,7 +2856,10 @@ mod tests {
         let (sentences, block_lengths) = split_for_export(md);
         assert_eq!(block_lengths, vec![1]);
         assert_eq!(sentences[0].text, "See this reference for details.");
-        assert_eq!(sentences[0].markdown_text, "See [this reference](https://example.com) for details.");
+        assert_eq!(
+            sentences[0].markdown_text,
+            "See [this reference](https://example.com) for details."
+        );
     }
 
     #[test]
@@ -2622,7 +2882,10 @@ mod tests {
         let (sentences, block_lengths) = split_for_export(md);
         assert_eq!(block_lengths, vec![1, 0, 1, 1]);
         assert_eq!(
-            sentences.iter().map(|s| s.text.as_str()).collect::<Vec<_>>(),
+            sentences
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>(),
             vec!["A", "1", "x"]
         );
     }
@@ -2648,13 +2911,15 @@ mod tests {
 
     #[test]
     fn drops_inline_html_comment_mid_sentence() {
-        let md = "In <!-- page header: 1933 he spent the summer --> while his family lived in Maine.";
+        let md =
+            "In <!-- page header: 1933 he spent the summer --> while his family lived in Maine.";
         assert_eq!(to_plain_text(md), "In while his family lived in Maine.");
     }
 
     #[test]
     fn drops_inline_html_comment_wrapped_across_lines() {
-        let md = "In <!-- page header: 1933 he\nspent the summer --> while his family lived in Maine.";
+        let md =
+            "In <!-- page header: 1933 he\nspent the summer --> while his family lived in Maine.";
         assert_eq!(to_plain_text(md), "In while his family lived in Maine.");
     }
 
@@ -2664,8 +2929,14 @@ mod tests {
         let (sentences, _) = split_for_export(md);
         let plain = to_plain_text(md);
         assert_eq!(
-            sentences.iter().map(|s| s.text.as_str()).collect::<Vec<_>>(),
-            speakable_splitter::split(&plain).iter().map(|s| s.text.as_str()).collect::<Vec<_>>()
+            sentences
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>(),
+            speakable_splitter::split(&plain)
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>()
         );
         assert_eq!(plain, "First sentence here. Second sentence.");
     }

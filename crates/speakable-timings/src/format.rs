@@ -271,7 +271,10 @@ impl std::fmt::Display for Error {
         match self {
             Error::Json(e) => write!(f, "invalid timings JSON: {e}"),
             Error::UnsupportedVersion(v) => {
-                write!(f, "timings version {v} is not supported (expected {FORMAT_VERSION})")
+                write!(
+                    f,
+                    "timings version {v} is not supported (expected {FORMAT_VERSION})"
+                )
             }
             Error::Stale(s) => {
                 write!(
@@ -345,7 +348,11 @@ impl Timings {
 /// `"major.minor"` as two numbers.
 fn parse_version(v: &str) -> Option<(u32, u32)> {
     let (major, minor) = v.split_once('.')?;
-    let number = |s: &str| (!s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())).then(|| s.parse().ok()).flatten();
+    let number = |s: &str| {
+        (!s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| s.parse().ok())
+            .flatten()
+    };
     Some((number(major)?, number(minor)?))
 }
 
@@ -373,7 +380,9 @@ mod tests {
         assert!(!is_supported("0.0"));
         assert!(!is_supported("1.0"));
         // Only "major.minor".
-        for bad in ["", "0", "1", "0.1.0", "v0.1", "0.x", "0.", ".1", "+0.1", "0.-1"] {
+        for bad in [
+            "", "0", "1", "0.1.0", "v0.1", "0.x", "0.", ".1", "+0.1", "0.-1",
+        ] {
             assert!(!is_supported(bad), "{bad:?}");
         }
     }
@@ -381,8 +390,13 @@ mod tests {
     #[test]
     fn unsupported_version_is_reported_before_the_rest_is_parsed() {
         let json = r#"{"version": "2.0", "sentences": "a shape this crate can't read"}"#;
-        assert!(matches!(Timings::from_json(json), Err(Error::UnsupportedVersion(v)) if v == "2.0"));
+        assert!(
+            matches!(Timings::from_json(json), Err(Error::UnsupportedVersion(v)) if v == "2.0")
+        );
         // A number isn't a version string.
-        assert!(matches!(Timings::from_json(r#"{"version": 1}"#), Err(Error::Json(_))));
+        assert!(matches!(
+            Timings::from_json(r#"{"version": 1}"#),
+            Err(Error::Json(_))
+        ));
     }
 }

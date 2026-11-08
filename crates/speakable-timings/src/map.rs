@@ -19,7 +19,11 @@ pub struct TimedWord {
 
 impl TimedWord {
     pub fn new(text: impl Into<String>, start: f64, end: f64) -> Self {
-        TimedWord { text: text.into(), start, end }
+        TimedWord {
+            text: text.into(),
+            start,
+            end,
+        }
     }
 }
 
@@ -50,7 +54,10 @@ pub fn words(text: &str) -> Vec<&str> {
 /// Unicode-aware, so "Café," and "café" are the same word. Empty for a word
 /// with no letters or digits ("&", "—").
 pub fn compare_key(word: &str) -> String {
-    word.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+    word.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// A text word that takes part in the diff.
@@ -91,12 +98,21 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
         for (pos, word) in words.iter().enumerate() {
             let key = compare_key(word);
             if !key.is_empty() {
-                text.push(TextWord { key, text: word, sentence, pos, word_index: total_words });
+                text.push(TextWord {
+                    key,
+                    text: word,
+                    sentence,
+                    pos,
+                    word_index: total_words,
+                });
             }
             total_words += 1;
         }
     }
-    let timed: Vec<&TimedWord> = timed.iter().filter(|w| !compare_key(&w.text).is_empty()).collect();
+    let timed: Vec<&TimedWord> = timed
+        .iter()
+        .filter(|w| !compare_key(&w.text).is_empty())
+        .collect();
     let text_keys: Vec<&str> = text.iter().map(|w| w.key.as_str()).collect();
     let timed_keys: Vec<String> = timed.iter().map(|w| compare_key(&w.text)).collect();
     let timed_keys: Vec<&str> = timed_keys.iter().map(String::as_str).collect();
@@ -119,13 +135,19 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
 
     for op in capture_diff_slices(Algorithm::Myers, &text_keys, &timed_keys) {
         match op {
-            DiffOp::Equal { old_index, new_index, len } => {
+            DiffOp::Equal {
+                old_index,
+                new_index,
+                len,
+            } => {
                 for k in 0..len {
                     let w = timed[new_index + k];
                     word_times[old_index + k] = Some((w.start, w.end));
                 }
             }
-            DiffOp::Delete { old_index, old_len, .. } => {
+            DiffOp::Delete {
+                old_index, old_len, ..
+            } => {
                 for w in &text[old_index..old_index + old_len] {
                     report.missing.push(MissingWord {
                         sentence: w.sentence,
@@ -134,7 +156,11 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
                     });
                 }
             }
-            DiffOp::Insert { old_index, new_index, new_len } => {
+            DiffOp::Insert {
+                old_index,
+                new_index,
+                new_len,
+            } => {
                 let heard = &timed[new_index..new_index + new_len];
                 let (at, word_index) = insertion_at(old_index);
                 report.insertions.push(Insertion {
@@ -146,7 +172,12 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
                     score: None,
                 });
             }
-            DiffOp::Replace { old_index, old_len, new_index, new_len } => {
+            DiffOp::Replace {
+                old_index,
+                old_len,
+                new_index,
+                new_len,
+            } => {
                 let heard = &timed[new_index..new_index + new_len];
                 let (start, end) = (heard[0].start, heard[new_len - 1].end);
                 let run = &text[old_index..old_index + old_len];
@@ -164,7 +195,11 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
                         sentence: w.sentence,
                         word_index: w.word_index,
                         word: w.text.to_string(),
-                        reason: if crosses { SuspectReason::BoundaryUncertain } else { SuspectReason::Replaced },
+                        reason: if crosses {
+                            SuspectReason::BoundaryUncertain
+                        } else {
+                            SuspectReason::Replaced
+                        },
                         heard: Some(joined(heard)),
                         score: None,
                         start: t.0,
@@ -176,7 +211,8 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
     }
 
     let mut times: Vec<Option<(f64, f64)>> = vec![None; sentence_words.len()];
-    let mut by_sentence: Vec<Vec<Option<(f64, f64)>>> = sentence_words.iter().map(|w| vec![None; w.len()]).collect();
+    let mut by_sentence: Vec<Vec<Option<(f64, f64)>>> =
+        sentence_words.iter().map(|w| vec![None; w.len()]).collect();
     for (w, t) in text.iter().zip(&word_times) {
         by_sentence[w.sentence][w.pos] = *t;
         let Some((start, end)) = *t else { continue };
@@ -187,11 +223,19 @@ pub fn map_words(sentence_words: &[Vec<String>], timed: &[TimedWord]) -> Sentenc
         });
     }
 
-    SentenceMap { times, word_times: by_sentence, report }
+    SentenceMap {
+        times,
+        word_times: by_sentence,
+        report,
+    }
 }
 
 fn joined(words: &[&TimedWord]) -> String {
-    words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ")
+    words
+        .iter()
+        .map(|w| w.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -199,7 +243,10 @@ mod tests {
     use super::*;
 
     fn sentences(texts: &[&str]) -> Vec<Vec<String>> {
-        texts.iter().map(|t| words(t).into_iter().map(String::from).collect()).collect()
+        texts
+            .iter()
+            .map(|t| words(t).into_iter().map(String::from).collect())
+            .collect()
     }
 
     /// One timed word per entry, each 1 second long, back to back from 0.
@@ -211,8 +258,21 @@ mod tests {
             .collect()
     }
 
-    fn insertion(at: InsertionAt, word_index: usize, start: f64, end: f64, text: &str) -> Insertion {
-        Insertion { at, word_index, start, end, decoded_text: text.into(), score: None }
+    fn insertion(
+        at: InsertionAt,
+        word_index: usize,
+        start: f64,
+        end: f64,
+        text: &str,
+    ) -> Insertion {
+        Insertion {
+            at,
+            word_index,
+            start,
+            end,
+            decoded_text: text.into(),
+            score: None,
+        }
     }
 
     #[test]
@@ -228,7 +288,10 @@ mod tests {
         assert_eq!(compare_key("Café,"), "café");
         assert_eq!(compare_key("\"It's\""), "its");
         assert_eq!(compare_key("—"), "");
-        assert_eq!(words("this—that and – more"), vec!["this", "that", "and", "more"]);
+        assert_eq!(
+            words("this—that and – more"),
+            vec!["this", "that", "and", "more"]
+        );
     }
 
     #[test]
@@ -248,7 +311,10 @@ mod tests {
             start: 0.0,
             end: 2.0,
         };
-        assert_eq!(m.report.suspect, vec![replaced(0, "Fanny"), replaced(1, "Burney")]);
+        assert_eq!(
+            m.report.suspect,
+            vec![replaced(0, "Fanny"), replaced(1, "Burney")]
+        );
     }
 
     #[test]
@@ -257,13 +323,25 @@ mod tests {
         let s = sentences(&["I would have gone.", "By the mantelpiece."]);
         let m = map_words(&s, &timed("I would've gone by the mantle piece"));
         assert_eq!(m.times, vec![Some((0.0, 3.0)), Some((3.0, 7.0))]);
-        let heard: Vec<(&str, Option<&str>)> =
-            m.report.suspect.iter().map(|w| (w.word.as_str(), w.heard.as_deref())).collect();
+        let heard: Vec<(&str, Option<&str>)> = m
+            .report
+            .suspect
+            .iter()
+            .map(|w| (w.word.as_str(), w.heard.as_deref()))
+            .collect();
         assert_eq!(
             heard,
-            vec![("would", Some("would've")), ("have", Some("would've")), ("mantelpiece.", Some("mantle piece"))]
+            vec![
+                ("would", Some("would've")),
+                ("have", Some("would've")),
+                ("mantelpiece.", Some("mantle piece"))
+            ]
         );
-        assert!(m.report.suspect.iter().all(|w| w.reason == SuspectReason::Replaced));
+        assert!(m
+            .report
+            .suspect
+            .iter()
+            .all(|w| w.reason == SuspectReason::Replaced));
         assert!(m.report.insertions.is_empty());
         assert!(m.report.missing.is_empty());
     }
@@ -277,7 +355,13 @@ mod tests {
         assert_eq!(
             m.report.insertions,
             vec![
-                insertion(InsertionAt::BeforeSentence(0), 0, 0.0, 2.0, "hello everyone"),
+                insertion(
+                    InsertionAt::BeforeSentence(0),
+                    0,
+                    0.0,
+                    2.0,
+                    "hello everyone"
+                ),
                 insertion(InsertionAt::BeforeSentence(1), 2, 4.0, 6.0, "um so"),
                 insertion(InsertionAt::InSentence(1), 3, 7.0, 8.0, "uh"),
             ]
@@ -292,7 +376,13 @@ mod tests {
         let m = map_words(&s, &timed("only one thank you"));
         assert_eq!(
             m.report.insertions,
-            vec![insertion(InsertionAt::BeforeSentence(1), 2, 2.0, 4.0, "thank you")]
+            vec![insertion(
+                InsertionAt::BeforeSentence(1),
+                2,
+                2.0,
+                4.0,
+                "thank you"
+            )]
         );
     }
 
@@ -337,11 +427,19 @@ mod tests {
         assert_eq!(m.times, vec![Some((0.0, 2.0)), None, Some((2.0, 4.0))]);
         assert_eq!(
             m.word_times,
-            vec![vec![Some((0.0, 1.0)), Some((1.0, 2.0))], vec![None], vec![Some((2.0, 3.0)), Some((3.0, 4.0))]]
+            vec![
+                vec![Some((0.0, 1.0)), Some((1.0, 2.0))],
+                vec![None],
+                vec![Some((2.0, 3.0)), Some((3.0, 4.0))]
+            ]
         );
         assert_eq!(
             m.report.missing,
-            vec![MissingWord { sentence: 1, word_index: 2, word: "Skipped.".into() }]
+            vec![MissingWord {
+                sentence: 1,
+                word_index: 2,
+                word: "Skipped.".into()
+            }]
         );
         assert!(m.report.suspect.is_empty());
         assert!(m.report.insertions.is_empty());
@@ -353,7 +451,14 @@ mod tests {
         // but it is still word 1 of the producer's list.
         let s = sentences(&["One & two."]);
         let m = map_words(&s, &timed("one"));
-        assert_eq!(m.report.missing, vec![MissingWord { sentence: 0, word_index: 2, word: "two.".into() }]);
+        assert_eq!(
+            m.report.missing,
+            vec![MissingWord {
+                sentence: 0,
+                word_index: 2,
+                word: "two.".into()
+            }]
+        );
         // Every word has a slot, timed or not.
         assert_eq!(m.word_times, vec![vec![Some((0.0, 1.0)), None, None]]);
     }

@@ -8,7 +8,11 @@ use clap::{Parser, Subcommand};
 use speakable_timings::{render_demo, timings_from_descript, DescriptTranscript, Timings};
 
 #[derive(Parser)]
-#[command(name = "speakable", version, about = "Sentence timings for markdown read aloud")]
+#[command(
+    name = "speakable",
+    version,
+    about = "Sentence timings for markdown read aloud"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -89,7 +93,14 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> Result<(), String> {
     match cli.command {
-        Command::Descript { doc, transcript, audio, output, report: with_report, words: with_words } => {
+        Command::Descript {
+            doc,
+            transcript,
+            audio,
+            output,
+            report: with_report,
+            words: with_words,
+        } => {
             let markdown = read(&doc)?;
             let transcript = DescriptTranscript::from_json(&read(&transcript)?)
                 .map_err(|e| format!("{}: not a Descript transcript: {e}", transcript.display()))?;
@@ -98,14 +109,25 @@ fn run(cli: Cli) -> Result<(), String> {
             summarize(&timings, with_report);
             write_timings(&output, timings_kept(&mut timings, with_report, with_words))
         }
-        Command::Align { audio, doc, output, report: with_report, words: with_words } => {
+        Command::Align {
+            audio,
+            doc,
+            output,
+            report: with_report,
+            words: with_words,
+        } => {
             let markdown = read_doc(&doc)?;
             let audio_ref = relative_path(&audio, &parent_dir(&output)?)?;
             let mut timings = align(&markdown, &doc, &audio, &audio_ref)?;
             summarize(&timings, with_report);
             write_timings(&output, timings_kept(&mut timings, with_report, with_words))
         }
-        Command::Demo { doc, timings: timings_path, audio, output } => {
+        Command::Demo {
+            doc,
+            timings: timings_path,
+            audio,
+            output,
+        } => {
             let markdown = read_doc(&doc)?;
             let (timings, audio) = match (timings_path, audio) {
                 (_, Some(audio)) => {
@@ -116,9 +138,13 @@ fn run(cli: Cli) -> Result<(), String> {
                 (Some(timings_path), None) => {
                     let timings = Timings::from_json(&read(&timings_path)?)
                         .map_err(|e| format!("{}: {e}", timings_path.display()))?;
-                    timings
-                        .check(&markdown)
-                        .map_err(|e| format!("{} doesn't match {}: {e}", timings_path.display(), doc.display()))?;
+                    timings.check(&markdown).map_err(|e| {
+                        format!(
+                            "{} doesn't match {}: {e}",
+                            timings_path.display(),
+                            doc.display()
+                        )
+                    })?;
                     let audio = parent_dir(&timings_path)?.join(&timings.audio);
                     (timings, audio)
                 }
@@ -141,7 +167,8 @@ fn align(markdown: &str, doc: &Path, audio: &Path, audio_ref: &str) -> Result<Ti
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Normalizer::builtin(),
         Err(e) => return Err(format!("{}: {e}", overrides_path.display())),
     };
-    speakable_align::align_audio(markdown, &normalizer, audio, audio_ref).map_err(|e| format!("{e:#}"))
+    speakable_align::align_audio(markdown, &normalizer, audio, audio_ref)
+        .map_err(|e| format!("{e:#}"))
 }
 
 #[cfg(not(feature = "align"))]
@@ -168,9 +195,14 @@ fn write_timings(path: &Path, timings: &Timings) -> Result<(), String> {
 /// else as plain text, escaped so `*` or `#` in it stays text.
 fn read_doc(path: &Path) -> Result<String, String> {
     let text = read(path)?;
-    let is_markdown =
-        path.extension().is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"));
-    Ok(if is_markdown { text } else { speakable_markdown::from_plain_text(&text) })
+    let is_markdown = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"));
+    Ok(if is_markdown {
+        text
+    } else {
+        speakable_markdown::from_plain_text(&text)
+    })
 }
 
 fn read(path: &Path) -> Result<String, String> {
@@ -185,9 +217,18 @@ fn write(path: &Path, contents: &str) -> Result<(), String> {
 /// report has for review.
 fn summarize(t: &Timings, with_report: bool) {
     let untimed = t.sentences.iter().filter(|s| s.times().is_none()).count();
-    eprintln!("{} sentences: {} timed, {} untimed", t.sentences.len(), t.sentences.len() - untimed, untimed);
+    eprintln!(
+        "{} sentences: {} timed, {} untimed",
+        t.sentences.len(),
+        t.sentences.len() - untimed,
+        untimed
+    );
     let r = &t.report;
-    let hint = if with_report { "" } else { " (for more detail, run with --report)" };
+    let hint = if with_report {
+        ""
+    } else {
+        " (for more detail, run with --report)"
+    };
     eprintln!(
         "report: {} insertions, {} suspect, {} missing, {} filtered{hint}",
         r.insertions.len(),
@@ -226,7 +267,11 @@ fn relative_path(target: &Path, base: &Path) -> Result<String, String> {
     let b: Vec<Component> = base.components().collect();
     let common = t.iter().zip(&b).take_while(|(x, y)| x == y).count();
     let mut parts: Vec<String> = vec!["..".to_string(); b.len() - common];
-    parts.extend(t[common..].iter().map(|c| c.as_os_str().to_string_lossy().into_owned()));
+    parts.extend(
+        t[common..]
+            .iter()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned()),
+    );
     Ok(parts.join("/"))
 }
 
@@ -236,8 +281,17 @@ mod tests {
 
     #[test]
     fn relative_paths() {
-        assert_eq!(relative_path(Path::new("/a/b/talk.mp3"), Path::new("/a/b")).unwrap(), "talk.mp3");
-        assert_eq!(relative_path(Path::new("/a/audio/talk.mp3"), Path::new("/a/b")).unwrap(), "../audio/talk.mp3");
-        assert_eq!(relative_path(Path::new("/a/b/./c/../talk.mp3"), Path::new("/a/b/")).unwrap(), "talk.mp3");
+        assert_eq!(
+            relative_path(Path::new("/a/b/talk.mp3"), Path::new("/a/b")).unwrap(),
+            "talk.mp3"
+        );
+        assert_eq!(
+            relative_path(Path::new("/a/audio/talk.mp3"), Path::new("/a/b")).unwrap(),
+            "../audio/talk.mp3"
+        );
+        assert_eq!(
+            relative_path(Path::new("/a/b/./c/../talk.mp3"), Path::new("/a/b/")).unwrap(),
+            "talk.mp3"
+        );
     }
 }
