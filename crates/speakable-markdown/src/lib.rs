@@ -48,7 +48,7 @@ pub fn split_for_export(markdown: &str) -> (Vec<ExportSentence>, Vec<usize>) {
 /// Same as `split_for_export`, but with math overrides — see
 /// `to_plain_text_with_math_overrides`.
 pub fn split_for_export_with_math_overrides(markdown: &str, math_overrides: &HashMap<String, String>) -> (Vec<ExportSentence>, Vec<usize>) {
-    let markdown = strip_silent(markdown);
+    let markdown = strip_silent(strip_frontmatter(markdown));
     let markdown = speak_math(&markdown, math_overrides);
 
     let mut sentences: Vec<ExportSentence> = Vec::new();
@@ -1063,7 +1063,7 @@ pub fn to_plain_text(markdown: &str) -> String {
 /// comment for the token/replacement shape. Empty map behaves exactly like
 /// `to_plain_text`.
 pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMap<String, String>) -> String {
-    let markdown = strip_silent(markdown);
+    let markdown = strip_silent(strip_frontmatter(markdown));
     let markdown = speak_math(&markdown, math_overrides);
 
     let mut blocks: Vec<String> = Vec::new();
@@ -1184,6 +1184,41 @@ pub fn to_plain_text_with_math_overrides(markdown: &str, math_overrides: &HashMa
     push_block(&mut blocks, &current);
 
     blocks.join("\n")
+}
+
+/// `markdown` without a leading YAML frontmatter block, which is metadata
+/// (`title:`, `reader:`), not text to speak or show.
+///
+/// The block is recognized as pulldown-cmark recognizes a YAML metadata
+/// block: the document's first line is `---` (after an optional byte-order
+/// mark), the line after it is not blank, and the block ends at the next
+/// line that is `---` or `...`. Without a closing line, nothing is
+/// stripped. The not-blank rule keeps a document that opens with a
+/// thematic break (`---` then a blank line) as it is.
+///
+/// Every function here that splits or renders a document strips it first,
+/// so a document and the same document with its frontmatter removed have
+/// the same sentences. Plain text through `from_plain_text` never has one:
+/// its lines are joined with blank lines.
+pub fn strip_frontmatter(markdown: &str) -> &str {
+    let body = markdown.strip_prefix('\u{feff}').unwrap_or(markdown);
+    let mut lines = body.split_inclusive('\n');
+    let is_line = |line: &str, marker: &str| line.trim_end() == marker;
+    let Some(first) = lines.next() else { return markdown };
+    if !first.ends_with('\n') || !is_line(first, "---") {
+        return markdown;
+    }
+    let mut offset = first.len();
+    for (i, line) in lines.enumerate() {
+        if i == 0 && line.trim().is_empty() {
+            return markdown;
+        }
+        offset += line.len();
+        if is_line(line, "---") || is_line(line, "...") {
+            return &body[offset..];
+        }
+    }
+    markdown
 }
 
 /// Remove "silent" spans — bracketed text immediately followed by a
@@ -1469,6 +1504,44 @@ fn push_block(blocks: &mut Vec<String>, text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strip_frontmatter_removes_a_leading_yaml_block() {
+        assert_eq!(strip_frontmatter("---\nreader: Jane Doe\n---\n# Hi\n\nText."), "# Hi\n\nText.");
+        assert_eq!(strip_frontmatter("\u{feff}---\r\ntitle: A\r\n...\r\nText."), "Text.");
+        assert_eq!(strip_frontmatter("---\n---\nText."), "Text.");
+        assert_eq!(strip_frontmatter("---\nreader: Jane Doe\n---"), "");
+    }
+
+    #[test]
+    fn strip_frontmatter_leaves_other_documents_alone() {
+        for md in [
+            "Text.\n\n---\nreader: X\n---\n",       // not at the top
+            "---\n\nPara one.\n\n---\n\nPara two.", // a thematic break: blank line after
+            "---\nreader: Jane Doe\n\nNo closing line.",
+            "---",
+            " ---\nreader: X\n---\nText.", // indented opener
+            "",
+        ] {
+            assert_eq!(strip_frontmatter(md), md, "{md:?}");
+        }
+    }
+
+    #[test]
+    fn frontmatter_is_not_spoken() {
+        let body = "# Talk\n\nOne here. Two here.\n\n- Three.\n";
+        let with = format!("---\ntitle: Talk\nreader: Jane Doe\n---\n{body}");
+        assert_eq!(to_plain_text(&with), to_plain_text(body));
+        assert!(!to_plain_text(&with).contains("Jane"));
+        assert_eq!(split_for_export(&with), split_for_export(body));
+    }
+
+    #[test]
+    fn plain_text_with_a_dash_line_keeps_it() {
+        let markdown = from_plain_text("---\nreader: Jane Doe\n---\nText.");
+        assert_eq!(strip_frontmatter(&markdown), markdown);
+        assert!(to_plain_text(&markdown).contains("Jane Doe"));
+    }
 
     #[test]
     fn from_plain_text_round_trips_a_single_paragraph() {

@@ -30,9 +30,9 @@ const CSS: &str = include_str!("demo.css");
 const JS: &str = include_str!("demo.js");
 
 /// The text of the document's first heading, silent or not, with inline
-/// markup left out.
+/// markup left out. A `#` line in YAML frontmatter is not a heading.
 pub fn title_of(markdown: &str) -> Option<String> {
-    let line = markdown.lines().find(|l| l.trim_start().starts_with('#'))?;
+    let line = speakable_markdown::strip_frontmatter(markdown).lines().find(|l| l.trim_start().starts_with('#'))?;
     let text = line.trim().trim_start_matches('#').trim().trim_end_matches('#').trim();
     let mut out = String::new();
     let mut rest = text;

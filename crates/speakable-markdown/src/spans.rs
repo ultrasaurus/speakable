@@ -21,7 +21,7 @@ use std::ops::Range;
 
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 
-use crate::{escape_markdown_chars, find_silent_comment, remove_silent_spans, speak_math, split_for_export_with_math_overrides, ExportSentence};
+use crate::{escape_markdown_chars, find_silent_comment, remove_silent_spans, speak_math, split_for_export_with_math_overrides, strip_frontmatter, ExportSentence};
 
 /// Render `markdown` to HTML with each spoken sentence in its own span:
 ///
@@ -33,6 +33,7 @@ use crate::{escape_markdown_chars, find_silent_comment, remove_silent_spans, spe
 /// - `times[i]` gives sentence `i` its `start` and `end` attributes, in
 ///   seconds. A sentence with `None`, or past the end of `times`, gets a
 ///   span with no times.
+/// - A leading YAML frontmatter block is left out (see `strip_frontmatter`).
 pub fn to_html_with_sentence_spans(markdown: &str, times: &[Option<(f64, f64)>]) -> String {
     to_html_with_sentence_spans_and_math_overrides(markdown, times, &HashMap::new())
 }
@@ -44,6 +45,7 @@ pub fn to_html_with_sentence_spans_and_math_overrides(
     times: &[Option<(f64, f64)>],
     math_overrides: &HashMap<String, String>,
 ) -> String {
+    let markdown = strip_frontmatter(markdown);
     let (sentences, block_lengths) = split_for_export_with_math_overrides(markdown, math_overrides);
     let blocks = group_by_block(&sentences, &block_lengths);
 
@@ -319,6 +321,17 @@ mod tests {
 
     fn plain_sentences(md: &str) -> Vec<String> {
         split_for_export(md).0.into_iter().map(|s| s.text).collect()
+    }
+
+    #[test]
+    fn frontmatter_is_left_out_with_the_same_indices() {
+        let body = "# Talk\n\nOne here. Two here.\n\n- Three.\n";
+        let with = format!("---\ntitle: Talk\nreader: Jane Doe\n---\n{body}");
+        let times = [Some((0.0, 1.0)), Some((1.0, 2.0)), Some((2.0, 3.0)), Some((3.0, 4.0))];
+        let html = to_html_with_sentence_spans(&with, &times);
+        assert_eq!(html, to_html_with_sentence_spans(body, &times));
+        assert!(!html.contains("reader") && !html.contains("<hr"));
+        assert_eq!(span_texts(&html), plain_sentences(body));
     }
 
     #[test]

@@ -94,6 +94,22 @@ mod tests {
     }
 
     #[test]
+    fn timings_from_a_doc_with_frontmatter_check_against_it_stripped() {
+        let body = "# Talk\n\nOne here. Two here.\n";
+        let with = format!("---\nreader: Jane Doe\n---\n{body}");
+        let timed: Vec<TimedWord> = ["Talk", "One", "here.", "Two", "here."]
+            .iter()
+            .enumerate()
+            .map(|(i, w)| TimedWord { text: w.to_string(), start: i as f64, end: i as f64 + 0.5 })
+            .collect();
+        let t = timings_from_words(&with, &timed, "talk.mp3");
+        assert_eq!(t.sentences.len(), 3);
+        t.check(body).expect("matches the stripped markdown");
+        t.check(&with).expect("matches the markdown with frontmatter");
+        assert_eq!(title_of(&format!("---\n# a yaml comment\n---\n{body}")).as_deref(), Some("Talk"));
+    }
+
+    #[test]
     fn document_sentences_are_the_spoken_split() {
         let md = "# [Title]<!--silent-->\n\nOne here. Two here.\n\n- Item.\n\n1. Numbered *item. Two* parts.";
         let spoken: Vec<String> = speakable_splitter::split(&speakable_markdown::to_plain_text(md))
