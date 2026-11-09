@@ -5,8 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use speakable_normalizer::{parse_overrides, Normalizer};
 use speakable_timings::{
-    render_demo, timings_from_descript, DescriptTranscript, Timings, UnreadRun,
+    document_sentences, render_demo, timings_from_descript, DescriptTranscript, Timings, UnreadRun,
 };
 
 #[derive(Parser)]
@@ -80,6 +81,22 @@ enum Command {
         /// Where to write the page. It refers to the audio by relative path.
         #[arg(short, long)]
         output: PathBuf,
+    },
+    /// Print text in its spoken form, as `align` normalizes it before
+    /// aligning ("1945" → "nineteen forty five").
+    Normalize {
+        /// The text to normalize. Give this or `--doc`.
+        #[arg(required_unless_present = "doc", conflicts_with = "doc")]
+        text: Option<String>,
+        /// Normalize a whole document instead, one numbered line per
+        /// sentence, split and numbered as `align` does. Its
+        /// `<doc>.overrides.txt`, when present, is applied.
+        #[arg(long)]
+        doc: Option<PathBuf>,
+        /// An overrides file to layer over the built-in table (and over
+        /// the document's own overrides file, with `--doc`).
+        #[arg(long)]
+        overrides: Option<PathBuf>,
     },
 }
 
@@ -155,21 +172,54 @@ fn run(cli: Cli) -> Result<(), String> {
             let audio_src = relative_path(&audio, &parent_dir(&output)?)?;
             write(&output, &render_demo(&markdown, &timings, &audio_src))
         }
+        Command::Normalize {
+            text,
+            doc,
+            overrides,
+        } => {
+            let mut normalizer = match &doc {
+                Some(doc) => doc_normalizer(doc)?,
+                None => Normalizer::builtin(),
+            };
+            if let Some(path) = &overrides {
+                normalizer = normalizer.with_overrides(parse_overrides(&read(path)?));
+            }
+            match (text, doc) {
+                (_, Some(doc)) => print!("{}", normalized_sentences(&read_doc(&doc)?, &normalizer)),
+                (Some(text), None) => println!("{}", normalizer.normalize(&text)),
+                (None, None) => unreachable!("clap requires text or --doc"),
+            }
+            Ok(())
+        }
     }
+}
+
+/// The built-in normalizer plus `<doc>.overrides.txt` when there is one.
+fn doc_normalizer(doc: &Path) -> Result<Normalizer, String> {
+    let overrides_path = doc.with_extension("overrides.txt");
+    match std::fs::read_to_string(&overrides_path) {
+        Ok(contents) => Ok(Normalizer::builtin().with_overrides(parse_overrides(&contents))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Normalizer::builtin()),
+        Err(e) => Err(format!("{}: {e}", overrides_path.display())),
+    }
+}
+
+/// Each of the document's sentences in its spoken form, one per line,
+/// prefixed with its index: the same sentences and numbers `align` uses,
+/// so a sentence named in its warnings can be looked up here.
+fn normalized_sentences(markdown: &str, normalizer: &Normalizer) -> String {
+    document_sentences(markdown)
+        .iter()
+        .enumerate()
+        .map(|(i, s)| format!("{i}: {}\n", normalizer.normalize(s)))
+        .collect()
 }
 
 /// Timings for `markdown` from the audio file at `audio`, normalized with
 /// the built-in table plus `<doc>.overrides.txt` when there is one.
 #[cfg(feature = "align")]
 fn align(markdown: &str, doc: &Path, audio: &Path, audio_ref: &str) -> Result<Timings, String> {
-    use speakable_normalizer::{parse_overrides, Normalizer};
-    let overrides_path = doc.with_extension("overrides.txt");
-    let normalizer = match std::fs::read_to_string(&overrides_path) {
-        Ok(contents) => Normalizer::builtin().with_overrides(parse_overrides(&contents)),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Normalizer::builtin(),
-        Err(e) => return Err(format!("{}: {e}", overrides_path.display())),
-    };
-    speakable_align::align_audio(markdown, &normalizer, audio, audio_ref)
+    speakable_align::align_audio(markdown, &doc_normalizer(doc)?, audio, audio_ref)
         .map_err(|e| format!("{e:#}"))
 }
 
@@ -340,6 +390,20 @@ mod tests {
             "warning: sentence 4 not in the audio, left untimed \
              (the audio stops after 1:20.0): \"Four.\""
         );
+    }
+
+    #[test]
+    fn normalized_sentences_are_numbered_as_align_numbers_them() {
+        let markdown = "# Title\n\nBorn in 1945. Read Gal. 6:1,2 today.\n";
+        assert_eq!(
+            normalized_sentences(markdown, &Normalizer::builtin()),
+            "0: Title\n\
+             1: Born in nineteen forty five.\n\
+             2: Read Galatians chapter six verses one and two today.\n"
+        );
+        let with_override =
+            Normalizer::builtin().with_overrides(parse_overrides("Title\tThe Title\n"));
+        assert!(normalized_sentences(markdown, &with_override).starts_with("0: The Title\n"));
     }
 
     #[test]

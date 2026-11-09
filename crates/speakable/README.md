@@ -17,6 +17,8 @@ speakable demo <doc> --audio <audio.mp3> -o <doc.html>
 speakable demo <doc> <doc.timings.json> -o <doc.html>
 speakable align <audio.mp3> <doc> -o <doc.timings.json> [--report] [--words]
 speakable descript <doc.md> <transcript.json> --audio <audio.mp3> -o <doc.timings.json> [--report] [--words]
+speakable normalize "<text>" [--overrides <file>]
+speakable normalize --doc <doc> [--overrides <file>]
 ```
 
 - `descript` maps a Descript word-level transcript export onto the
@@ -53,6 +55,13 @@ speakable descript <doc.md> <transcript.json> --audio <audio.mp3> -o <doc.timing
   - With `--audio`, it aligns the audio first, as `align` does.
   - It refers to the audio by relative path, so keep the page and the
     audio where they are.
+- `normalize` prints text in the spoken form `align` aligns against
+  ("1945" → "nineteen forty five").
+  - With `--doc`, it prints one line per sentence, numbered as `align`'s
+    warnings number them (`12: Galatians chapter six verses one and
+    two`), and applies `<doc>.overrides.txt` when present.
+  - `--overrides <file>` layers another overrides file on top.
+  - It needs no model, so it works in a build without the `align` feature.
 
 ## Features
 
