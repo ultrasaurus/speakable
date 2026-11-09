@@ -3205,6 +3205,7 @@ dependencies = [
  "speakable-align",
  "speakable-markdown",
  "speakable-normalizer",
+ "speakable-splitter",
  "speakable-timings",
 ]
 

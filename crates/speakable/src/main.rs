@@ -393,6 +393,17 @@ mod tests {
     }
 
     #[test]
+    fn splitter_and_normalizer_know_the_same_bible_book_abbreviations() {
+        // The splitter keeps its own copy of the normalizer's list, since
+        // neither crate depends on the other. A book added to one alone
+        // would be split off as its own sentence, or not read as a book.
+        assert_eq!(
+            speakable_splitter::bible_book_abbrevs(),
+            speakable_normalizer::bible_book_abbrevs().as_slice()
+        );
+    }
+
+    #[test]
     fn normalized_sentences_are_numbered_as_align_numbers_them() {
         let markdown = "# Title\n\nBorn in 1945. Read Gal. 6:1,2 today.\n";
         assert_eq!(

@@ -34,6 +34,40 @@ const ABBREVS: &[&str] = &[
 /// together as one TTS segment.
 const ABBREV_PHRASES: &[&str] = &["Ed. Note", "Ed. note"];
 
+/// Bible book abbreviations, each with its trailing period. Their period is
+/// hidden only before a chapter:verse number (`Gal. 6:1`): some, like
+/// "Is." and "Am.", are also words that end real sentences. A full book
+/// name ("Job", "Mark") is never listed, since it takes no period. A copy
+/// of the normalizer's book table, which this crate can't depend on; a
+/// test in the `speakable` CLI crate checks the two match.
+#[rustfmt::skip]
+const BIBLE_BOOK_ABBREVS: &[&str] = &[
+    "Gen.", "Ge.", "Gn.", "Ex.", "Exod.", "Exo.", "Lev.", "Le.", "Lv.", "Num.", "Nu.", "Nm.",
+    "Nb.", "Deut.", "De.", "Dt.", "Josh.", "Jos.", "Jsh.", "Judg.", "Jdg.", "Jg.", "Jdgs.",
+    "Rth.", "Ru.", "1 Sam.", "1 Sm.", "1 Sa.", "1Sam.", "2 Sam.", "2 Sm.", "2 Sa.",
+    "2Sam.", "1 Kgs.", "1 Ki.", "1K.", "1Kgs.", "2 Kgs.", "2 Ki.", "2K.", "2Kgs.", "1 Chron.",
+    "1 Chr.", "1 Ch.", "1Chron.", "2 Chron.", "2 Chr.", "2 Ch.", "2Chron.", "Ezr.",
+    "Ez.", "Neh.", "Ne.", "Esth.", "Est.", "Es.", "Jb.", "Prov.", "Pro.", "Prv.", "Pr.",
+    "Eccles.", "Eccl.", "Ecc.", "Ec.", "SS.", "Song of Sol.", "Isa.",
+    "Is.", "Jer.", "Je.", "Jr.", "Lam.", "La.", "Ezek.", "Eze.", "Ezk.", "Dan.", "Da.", "Dn.",
+    "Hos.", "Ho.", "Jl.", "Am.", "Obad.", "Ob.", "Jnh.", "Jon.",
+    "Mic.", "Mc.", "Nah.", "Na.", "Hab.", "Hb.", "Zeph.", "Zep.", "Zp.", "Hag.", "Hg.", "Zech.",
+    "Zec.", "Zc.", "Mal.", "Ml.", "Matt.", "Mt.", "Mrk.", "Mk.", "Mr.", "Lk.",
+    "Jn.", "Jhn.", "Ac.", "Rom.", "Ro.", "Rm.", "1 Cor.", "1 Co.", "1Cor.",
+    "2 Cor.", "2 Co.", "2Cor.", "Gal.", "Ga.", "Eph.", "Ephes.", "Phil.", "Php.", "Col.", "Colo.",
+    "1 Thess.", "1 Th.", "1Thess.", "2 Thess.", "2 Th.", "2Thess.", "1 Tim.", "1 Ti.", "1Tim.",
+    "2 Tim.", "2 Ti.", "2Tim.", "Tit.", "Ti.", "Philem.", "Phm.", "Pm.", "Heb.",
+    "Hebr.", "Jas.", "Jm.", "1 Pet.", "1 Pt.", "1Pet.", "2 Pet.", "2 Pt.", "2Pet.",
+    "1 Jn.", "1Jn.", "2 Jn.", "2Jn.", "3 Jn.", "3Jn.",
+    "Jud.", "Rev.", "Re.", "Rv.", "Ps.", "Psa.",
+];
+
+/// The Bible book abbreviations whose period isn't a sentence end before a
+/// chapter:verse number, each with its trailing period.
+pub fn bible_book_abbrevs() -> &'static [&'static str] {
+    BIBLE_BOOK_ABBREVS
+}
+
 /// A sentence with its position in the document structure.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Sentence {
@@ -146,6 +180,9 @@ fn split_paragraph(paragraph: &str) -> Vec<String> {
     }
     for phrase in ABBREV_PHRASES {
         protected = hide_phrase_periods(&protected, phrase);
+    }
+    for abbrev in BIBLE_BOOK_ABBREVS {
+        protected = hide_bible_book_period(&protected, abbrev);
     }
     protected = hide_url_terminators(&protected);
 
@@ -450,6 +487,58 @@ fn hide_phrase_periods(text: &str, phrase: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// Hides the period of every whole-word `abbrev` (a `BIBLE_BOOK_ABBREVS`
+/// entry) that whitespace and a chapter:verse number follow, as in
+/// `(Gal. 6:1,2 NIV)`. Unicode's rules end a sentence there unless
+/// lowercase text comes after the reference, which cut citations in two.
+/// Before the match there must be no alphanumeric character, as in
+/// `hide_abbreviation_period`; case-sensitive.
+fn hide_bible_book_period(text: &str, abbrev: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    let mut consumed = 0usize;
+
+    while let Some(rel) = rest.find(abbrev) {
+        let abs = consumed + rel;
+        let end = abs + abbrev.len();
+        let before_ok = text[..abs]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_alphanumeric());
+
+        out.push_str(&rest[..rel]);
+        if before_ok && starts_with_chapter_verse(&text[end..]) {
+            out.push_str(&abbrev[..abbrev.len() - 1]);
+            out.push_str(PERIOD_PLACEHOLDER);
+        } else {
+            out.push_str(abbrev);
+        }
+
+        rest = &rest[rel + abbrev.len()..];
+        consumed = end;
+    }
+    out.push_str(rest);
+    out
+}
+
+/// True if `text` is whitespace, then digits, a colon and a digit: the
+/// start of a chapter:verse number such as ` 6:1`.
+fn starts_with_chapter_verse(text: &str) -> bool {
+    let after_space = text.trim_start();
+    if after_space.len() == text.len() {
+        return false;
+    }
+    let digits = after_space.len()
+        - after_space
+            .trim_start_matches(|c: char| c.is_ascii_digit())
+            .len();
+    let after_chapter = &after_space[digits..];
+    digits > 0
+        && after_chapter
+            .strip_prefix(':')
+            .is_some_and(|v| v.starts_with(|c: char| c.is_ascii_digit()))
 }
 
 /// Recovers characters `unicode_sentences()` silently drops around its
@@ -1397,6 +1486,54 @@ mod tests {
         // sits at a word boundary.
         let result = split("He ate a fig. Then he left.");
         assert_eq!(texts(result), vec!["He ate a fig.", "Then he left."]);
+    }
+
+    #[test]
+    fn bible_book_abbreviation_before_chapter_verse_does_not_split() {
+        for (text, want) in [
+            // A citation in parentheses joins the sentence it cites.
+            (
+                "Carry each other's burdens. (Gal. 6:1,2 NIV)",
+                vec!["Carry each other's burdens. (Gal. 6:1,2 NIV)"],
+            ),
+            (
+                "Carry each other's burdens. Gal. 6:1,2 NIV",
+                vec!["Carry each other's burdens.", "Gal. 6:1,2 NIV"],
+            ),
+            (
+                "Children, obey. (Eph. 6:1-4)",
+                vec!["Children, obey.", "(Eph. 6:1-4)"],
+            ),
+            (
+                "Love is patient. 1 Cor. 13:4 says so. Then rest.",
+                vec!["Love is patient.", "1 Cor. 13:4 says so.", "Then rest."],
+            ),
+            (
+                "Go to him (Matt. 18:15 NIV). Then rest.",
+                vec!["Go to him (Matt. 18:15 NIV).", "Then rest."],
+            ),
+        ] {
+            assert_eq!(texts(split(text)), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn bible_book_name_at_a_sentence_end_still_splits() {
+        // A full book name takes no period, so "Job." ends a sentence even
+        // before a time.
+        assert_eq!(
+            texts(split("He read Job. Then he slept.")),
+            vec!["He read Job.", "Then he slept."]
+        );
+        assert_eq!(
+            texts(split("He read Job. 3:00 AM came.")),
+            vec!["He read Job.", "3:00 AM came."]
+        );
+        // An abbreviation needs a chapter:verse after it.
+        assert_eq!(
+            texts(split("It is what it Is. Then rest.")),
+            vec!["It is what it Is.", "Then rest."]
+        );
     }
 
     #[test]

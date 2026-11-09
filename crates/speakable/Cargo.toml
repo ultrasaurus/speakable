@@ -24,3 +24,6 @@ speakable-align = { workspace = true, optional = true }
 speakable-markdown.workspace = true
 speakable-normalizer.workspace = true
 speakable-timings.workspace = true
+
+[dev-dependencies]
+speakable-splitter.workspace = true

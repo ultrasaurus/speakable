@@ -30,6 +30,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
 mod bible_refs;
+pub use bible_refs::bible_book_abbrevs;
 
 // ---------------------------------------------------------------------------
 // Override table

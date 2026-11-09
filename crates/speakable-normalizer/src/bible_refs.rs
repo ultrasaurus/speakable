@@ -34,33 +34,30 @@ static BOOKS: &[Book] = &[
     book!("Deuteronomy", ["Deut.", "De.", "Dt."]),
     book!("Joshua", ["Josh.", "Jos.", "Jsh."]),
     book!("Judges", ["Judg.", "Jdg.", "Jg.", "Jdgs."]),
-    book!("Ruth", ["Ruth.", "Rth.", "Ru."]),
+    book!("Ruth", ["Rth.", "Ru."]),
     book!("1 Samuel", spoken: "First Samuel", ["1 Sam.", "1 Sm.", "1 Sa.", "1Sam."]),
     book!("2 Samuel", spoken: "Second Samuel", ["2 Sam.", "2 Sm.", "2 Sa.", "2Sam."]),
     book!("1 Kings", spoken: "First Kings", ["1 Kgs.", "1 Ki.", "1K.", "1Kgs."]),
     book!("2 Kings", spoken: "Second Kings", ["2 Kgs.", "2 Ki.", "2K.", "2Kgs."]),
     book!("1 Chronicles", spoken: "First Chronicles", ["1 Chron.", "1 Chr.", "1 Ch.", "1Chron."]),
     book!("2 Chronicles", spoken: "Second Chronicles", ["2 Chron.", "2 Chr.", "2 Ch.", "2Chron."]),
-    book!("Ezra", ["Ezra.", "Ezr.", "Ez."]),
+    book!("Ezra", ["Ezr.", "Ez."]),
     book!("Nehemiah", ["Neh.", "Ne."]),
     book!("Esther", ["Esth.", "Est.", "Es."]),
-    book!("Job", ["Job.", "Jb."]),
+    book!("Job", ["Jb."]),
     book!("Proverbs", ["Prov.", "Pro.", "Prv.", "Pr."]),
     book!("Ecclesiastes", ["Eccles.", "Eccl.", "Ecc.", "Ec."]),
-    book!(
-        "Song of Solomon",
-        ["Song.", "SS.", "Song of Sol.", "Canticles."]
-    ),
+    book!("Song of Solomon", ["SS.", "Song of Sol."]),
     book!("Isaiah", ["Isa.", "Is."]),
     book!("Jeremiah", ["Jer.", "Je.", "Jr."]),
     book!("Lamentations", ["Lam.", "La."]),
     book!("Ezekiel", ["Ezek.", "Eze.", "Ezk."]),
     book!("Daniel", ["Dan.", "Da.", "Dn."]),
     book!("Hosea", ["Hos.", "Ho."]),
-    book!("Joel", ["Joel.", "Jl."]),
-    book!("Amos", ["Amos.", "Am."]),
+    book!("Joel", ["Jl."]),
+    book!("Amos", ["Am."]),
     book!("Obadiah", ["Obad.", "Ob."]),
-    book!("Jonah", ["Jonah.", "Jnh.", "Jon."]),
+    book!("Jonah", ["Jnh.", "Jon."]),
     book!("Micah", ["Mic.", "Mc."]),
     book!("Nahum", ["Nah.", "Na."]),
     book!("Habakkuk", ["Hab.", "Hb."]),
@@ -69,10 +66,10 @@ static BOOKS: &[Book] = &[
     book!("Zechariah", ["Zech.", "Zec.", "Zc."]),
     book!("Malachi", ["Mal.", "Ml."]),
     book!("Matthew", ["Matt.", "Mt."]),
-    book!("Mark", ["Mark.", "Mrk.", "Mk.", "Mr."]),
-    book!("Luke", ["Luke.", "Lk."]),
-    book!("John", ["John.", "Jn.", "Jhn."]),
-    book!("Acts", ["Acts.", "Ac."]),
+    book!("Mark", ["Mrk.", "Mk.", "Mr."]),
+    book!("Luke", ["Lk."]),
+    book!("John", ["Jn.", "Jhn."]),
+    book!("Acts", ["Ac."]),
     book!("Romans", ["Rom.", "Ro.", "Rm."]),
     book!("1 Corinthians", spoken: "First Corinthians", ["1 Cor.", "1 Co.", "1Cor."]),
     book!("2 Corinthians", spoken: "Second Corinthians", ["2 Cor.", "2 Co.", "2Cor."]),
@@ -84,26 +81,37 @@ static BOOKS: &[Book] = &[
     book!("2 Thessalonians", spoken: "Second Thessalonians", ["2 Thess.", "2 Th.", "2Thess."]),
     book!("1 Timothy", spoken: "First Timothy", ["1 Tim.", "1 Ti.", "1Tim."]),
     book!("2 Timothy", spoken: "Second Timothy", ["2 Tim.", "2 Ti.", "2Tim."]),
-    book!("Titus", ["Titus.", "Tit.", "Ti."]),
+    book!("Titus", ["Tit.", "Ti."]),
     book!("Philemon", ["Philem.", "Phm.", "Pm."]),
     book!("Hebrews", ["Heb.", "Hebr."]),
-    book!("James", ["James.", "Jas.", "Jm."]),
+    book!("James", ["Jas.", "Jm."]),
     book!("1 Peter", spoken: "First Peter", ["1 Pet.", "1 Pt.", "1Pet."]),
     book!("2 Peter", spoken: "Second Peter", ["2 Pet.", "2 Pt.", "2Pet."]),
-    book!("1 John", spoken: "First John", ["1 John.", "1 Jn.", "1Jn."]),
-    book!("2 John", spoken: "Second John", ["2 John.", "2 Jn.", "2Jn."]),
-    book!("3 John", spoken: "Third John", ["3 John.", "3 Jn.", "3Jn."]),
-    book!("Jude", ["Jude.", "Jud."]),
+    book!("1 John", spoken: "First John", ["1 Jn.", "1Jn."]),
+    book!("2 John", spoken: "Second John", ["2 Jn.", "2Jn."]),
+    book!("3 John", spoken: "Third John", ["3 Jn.", "3Jn."]),
+    book!("Jude", ["Jud."]),
     book!("Revelation", ["Rev.", "Re.", "Rv."]),
     // Psalms: singular "Psalm" spoken form for a single-chapter reference,
     // no "chapter" word (e.g. "Psalm seventy three verse twenty one").
     Book {
         full_name: "Psalm",
         spoken_name: "Psalm",
-        abbrevs: &["Ps.", "Psa.", "Psalm.", "Psalms."],
+        abbrevs: &["Ps.", "Psa."],
         psalms_style: true,
     },
 ];
+
+/// Every book abbreviation in the table, each with its trailing period, in
+/// table order. The splitter keeps its own copy to tell a book
+/// abbreviation's period from a sentence end; a test in the `speakable`
+/// CLI crate checks the two lists match.
+pub fn bible_book_abbrevs() -> Vec<&'static str> {
+    BOOKS
+        .iter()
+        .flat_map(|b| b.abbrevs.iter().copied())
+        .collect()
+}
 
 fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'

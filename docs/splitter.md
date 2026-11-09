@@ -15,8 +15,8 @@ real text broke the plain Unicode split in one of these ways.
 `split` runs these per paragraph, in order (`split_paragraph` in
 `crates/speakable-splitter/src/lib.rs`):
 
-1. Hide periods that don't end a sentence: abbreviations, fixed phrases
-   and URLs.
+1. Hide periods that don't end a sentence: abbreviations, fixed phrases,
+   Bible book abbreviations before a verse, and URLs.
 2. Split each line at Unicode (UAX #29) sentence boundaries, then recover
    any characters the split dropped.
 3. Reattach footnote and citation markers to the sentence they cite, in
@@ -55,6 +55,22 @@ and restored afterward, so UAX #29 never sees it.
   sentence, while `and Ed. Then` still splits. Splitting `Ed. Note` would
   also put the halves of an `ed. note` → "Editor's Note" override in
   different sentences.
+- **Bible book abbreviations** (`BIBLE_BOOK_ABBREVS`): `Gal.`, `1 Cor.`,
+  `Ps.` and the rest are protected only when whitespace and a
+  chapter:verse number follow (`Gal. 6:1`).
+  - Without this, `(Gal. 6:1,2 NIV)` split after `Gal.`. UAX #29 keeps an
+    abbreviation's period only when lowercase text follows, so
+    `Read Gal. 6:1,2 today.` held together while a reference ending in
+    `NIV)` didn't. The split-off `6:1,2 NIV` then had no book name, so the
+    normalizer read it as a ratio.
+  - The list is a copy of the normalizer's book table, since neither crate
+    depends on the other. A test in the `speakable` CLI crate checks the
+    two match.
+  - Full book names (`Job`, `Mark`, `John`) aren't listed: they take no
+    period, so `He read Job. 3:00 AM came.` still splits. The normalizer
+    recognizes them without one (`Job 3:1`).
+  - A few abbreviations are also words (`Is.`, `Am.`). A sentence ending
+    in one, followed by one starting with a time, stays one sentence.
 - **URLs**: every `.`, `?` and `!` inside an `http://` or `https://` URL,
   up to the next whitespace, is hidden.
   - UAX #29 ends a sentence at a period before a capital letter even with
