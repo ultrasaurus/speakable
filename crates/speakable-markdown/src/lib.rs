@@ -1,3 +1,7 @@
+#![doc = include_str!("../README.md")]
+//!
+//! ## Design notes
+//!
 //! Markdown -> plain text conversion, for TTS sentence splitting.
 //!
 //! Bold/italic/inline-code markers are removed and links are reduced to

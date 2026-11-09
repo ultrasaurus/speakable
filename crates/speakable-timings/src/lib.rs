@@ -1,10 +1,4 @@
-//! Sentence timings: a start and end time for each sentence of a markdown
-//! document, from one recording of it.
-//!
-//! - `Timings` is the JSON format (version 0.1).
-//! - `map_words` maps timed words onto sentences, for any producer.
-//! - `DescriptTranscript` reads a Descript word-level transcript export.
-//! - `render_demo` writes a page that highlights each sentence as it plays.
+#![doc = include_str!("../README.md")]
 
 mod demo;
 mod descript;

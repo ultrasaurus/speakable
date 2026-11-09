@@ -1,5 +1,6 @@
-//! Sentence timings for a markdown document from one audio file of it, by
-//! forced alignment.
+#![doc = include_str!("../README.md")]
+//!
+//! ## The steps
 //!
 //! - `spoken_sentences` gives each sentence's plain text and its spoken
 //!   words: normalized ("1945" → "nineteen forty five"), so they match what

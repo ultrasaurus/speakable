@@ -23,7 +23,7 @@ those words out, and keeps a map from them back to the original text.
   - "9:00 AM" → "nine A M": on-the-hour minutes are dropped, and AM/PM is
     spelled out after a time.
   - "Mt. 5:30" → "Matthew chapter five verse thirty"
-  - "[1]" → "Footnote one."
+  - `[1]` → "Footnote one."
   - URLs → "link"
   - Short all-caps acronyms are spelled out.
   - Brackets and stray punctuation are removed.

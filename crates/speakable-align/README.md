@@ -30,7 +30,7 @@ to align).
 
 ## Use
 
-```rust
+```rust,ignore
 use speakable_normalizer::Normalizer;
 
 let timings = speakable_align::align_audio(

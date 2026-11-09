@@ -1,6 +1,7 @@
-//! Text normalization applied before text-to-speech: rewrites a sentence
-//! into the words a voice should actually say ("1976-77" -> "nineteen
-//! seventy six to seventy seven", "e.g." -> "for example").
+// README.md with its relative links pointed at this version's tag (build.rs).
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/README.md"))]
+//!
+//! ## Pass order
 //!
 //! Processing order, in outline (the full, numbered pass list is in
 //! `normalize_with_spans_in`):

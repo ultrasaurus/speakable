@@ -1,3 +1,6 @@
+// README.md with its relative links pointed at this version's tag (build.rs).
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/README.md"))]
+
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
