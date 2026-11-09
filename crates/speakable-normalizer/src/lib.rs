@@ -491,7 +491,7 @@ fn normalize_with_spans_in(
     let chunks = expand_footnote_markers_spanned(chunks);
 
     // Pass 3c: expand Bible verse references ("Mt. 5:30" -> "Matthew chapter
-    // five verse thirty", "Ps. 40:7-8" -> "Psalm forty verse seven to
+    // five verse thirty", "Ps. 40:7-8" -> "Psalm forty verses seven to
     // eight"). Must run before Pass 4 (numeric ranges) and Pass 8 (bare
     // numbers) — both would otherwise independently claim and mis-expand
     // the chapter/verse digits before this pass ever sees the whole
@@ -1149,11 +1149,15 @@ fn spell_digits(digits: &str) -> String {
 }
 
 /// If a Bible verse reference starts at `chars[i]` — a known book name or
-/// abbreviation, whitespace, a chapter digit run, `:`, a verse digit run,
-/// and optionally `-` plus a same-chapter verse2 digit run — returns the
-/// spoken replacement and how many chars the whole reference consumed.
-/// Cross-chapter ranges ("John 3:16-4:2") aren't recognized here; only the
-/// chapter:verse[-verse2] shape is.
+/// abbreviation, whitespace, a chapter digit run, `:`, then one or more
+/// verse items separated by `,` with no space, each a verse digit run or a
+/// same-chapter `verse-verse2` range — returns the spoken replacement and
+/// how many chars the whole reference consumed. One verse is "verse N";
+/// a range or a list is "verses", with "to" for a range and a serial comma
+/// and "and" for a list: "6:1,2" → "verses one and two", "6:1-3,5,7" →
+/// "verses one to three, five, and seven". A comma followed by a space
+/// ends the reference ("Mt. 5:30, turn"). Cross-chapter ranges
+/// ("John 3:16-4:2") aren't recognized here.
 fn match_bible_ref(chars: &[char], i: usize) -> Option<(String, usize)> {
     let (book, psalms_style, book_len) = bible_refs::match_book(chars, i)?;
 
@@ -1175,25 +1179,37 @@ fn match_bible_ref(chars: &[char], i: usize) -> Option<(String, usize)> {
     if chapter_end >= chars.len() || chars[chapter_end] != ':' {
         return None;
     }
-    let verse_start = chapter_end + 1;
-    let verse_end = read_digits(chars, verse_start);
-    if verse_end == verse_start {
-        return None;
-    }
+    let digits = |range: std::ops::Range<usize>| -> String {
+        spell_digits(&chars[range].iter().collect::<String>())
+    };
 
-    let mut end = verse_end;
-    let mut verse2: Option<(usize, usize)> = None;
-    if end < chars.len() && chars[end] == '-' {
-        let v2_start = end + 1;
-        let v2_end = read_digits(chars, v2_start);
-        if v2_end > v2_start {
-            verse2 = Some((v2_start, v2_end));
-            end = v2_end;
+    // Each verse item, spoken: "one", or "one to three" for a range.
+    let mut items: Vec<String> = Vec::new();
+    let mut end = chapter_end; // the `:`, then each `,`
+    loop {
+        let verse_start = end + 1;
+        let verse_end = read_digits(chars, verse_start);
+        if verse_end == verse_start {
+            break;
+        }
+        let mut item = digits(verse_start..verse_end);
+        end = verse_end;
+        if end < chars.len() && chars[end] == '-' {
+            let v2_end = read_digits(chars, end + 1);
+            if v2_end > end + 1 {
+                item.push_str(" to ");
+                item.push_str(&digits(end + 1..v2_end));
+                end = v2_end;
+            }
+        }
+        items.push(item);
+        if end >= chars.len() || chars[end] != ',' {
+            break;
         }
     }
-
-    let chapter: String = chars[chapter_start..chapter_end].iter().collect();
-    let verse: String = chars[verse_start..verse_end].iter().collect();
+    if items.is_empty() {
+        return None;
+    }
 
     let mut spoken = String::new();
     spoken.push_str(book);
@@ -1201,14 +1217,15 @@ fn match_bible_ref(chars: &[char], i: usize) -> Option<(String, usize)> {
     if !psalms_style {
         spoken.push_str("chapter ");
     }
-    spoken.push_str(&spell_digits(&chapter));
-    spoken.push_str(" verse ");
-    spoken.push_str(&spell_digits(&verse));
-    if let Some((v2_start, v2_end)) = verse2 {
-        let verse2_digits: String = chars[v2_start..v2_end].iter().collect();
-        spoken.push_str(" to ");
-        spoken.push_str(&spell_digits(&verse2_digits));
-    }
+    spoken.push_str(&digits(chapter_start..chapter_end));
+    let one_verse = items.len() == 1 && !items[0].contains(" to ");
+    spoken.push_str(if one_verse { " verse " } else { " verses " });
+    spoken.push_str(&match items.as_slice() {
+        [only] => only.clone(),
+        [a, b] => format!("{a} and {b}"),
+        [rest @ .., last] => format!("{}, and {last}", rest.join(", ")),
+        [] => unreachable!("items isn't empty"),
+    });
 
     Some((spoken, end - i))
 }
@@ -5525,7 +5542,50 @@ mod tests {
     fn bible_ref_verse_range_same_chapter() {
         assert_eq!(
             expand_bible_refs("Ps. 40:7-8"),
-            "Psalm forty verse seven to eight"
+            "Psalm forty verses seven to eight"
+        );
+    }
+
+    #[test]
+    fn bible_ref_verse_list() {
+        assert_eq!(
+            expand_bible_refs("(Gal. 6:1,2 NIV)"),
+            "(Galatians chapter six verses one and two NIV)"
+        );
+    }
+
+    #[test]
+    fn bible_ref_verse_list_through_every_pass() {
+        // Later passes mustn't re-read the spoken list ("one,two" was the
+        // output when only "6:1" was matched).
+        let spoken = normalize("(Gal. 6:1,2 NIV)");
+        assert!(
+            spoken.contains("Galatians chapter six verses one and two"),
+            "{spoken}"
+        );
+    }
+
+    #[test]
+    fn bible_ref_verse_list_with_ranges_uses_a_serial_comma() {
+        assert_eq!(
+            expand_bible_refs("Eph. 6:1-3,5,7"),
+            "Ephesians chapter six verses one to three, five, and seven"
+        );
+        assert_eq!(
+            expand_bible_refs("Ps. 40:7-8,10"),
+            "Psalm forty verses seven to eight and ten"
+        );
+    }
+
+    #[test]
+    fn bible_ref_comma_without_a_verse_after_it_is_punctuation() {
+        assert_eq!(
+            expand_bible_refs("See Mt. 5:30,and pray."),
+            "See Matthew chapter five verse thirty,and pray."
+        );
+        assert_eq!(
+            expand_bible_refs("Mt. 5:30, 31 times"),
+            "Matthew chapter five verse thirty, 31 times"
         );
     }
 

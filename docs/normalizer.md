@@ -76,8 +76,9 @@ the code comments first, since they're the source of truth.
 - **Pass 3b** — Expand footnote/citation markers (`[1]`, `[2,3]`, `[^1]`,
   `*1*`) to spoken form (`"Footnote one."`, `"Footnotes two and three."`)
 - **Pass 3c** — Expand Bible verse references (`"Mt. 5:30"` → `"Matthew
-  chapter five verse thirty"`, `"Ps. 40:7-8"` → `"Psalm forty verse seven
-  to eight"`) — book table lives in `bible_refs.rs`. Must run before Pass 4
+  chapter five verse thirty"`, `"Ps. 40:7-8"` → `"Psalm forty verses seven
+  to eight"`, `"Gal. 6:1,2"` → `"Galatians chapter six verses one and
+  two"`) — book table lives in `bible_refs.rs`. Must run before Pass 4
   and Pass 8, for the same "specific before generic" reason as everywhere
   else in this file — otherwise the chapter/verse digits get claimed and
   mis-expanded independently
@@ -536,8 +537,12 @@ reaches this pass as two separate sentence fragments instead of one.
 
 ### Pass 3c — Bible verse references
 
-Matches `<book> <chapter>:<verse>[-<verse2>]` and expands it to spoken
-form. `<book>` is either a book's full name or one of its abbreviations
+Matches `<book> <chapter>:<verses>` and expands it to spoken form.
+`<verses>` is one verse item or several separated by `,` with no space,
+each item a verse or a same-chapter range `<verse>-<verse2>`. One verse is
+spoken "verse"; a range or a list is spoken "verses", a range with "to",
+and a list with a serial comma and "and". A comma followed by a space ends
+the reference, so `Mt. 5:30, turn` keeps its comma as punctuation. `<book>` is either a book's full name or one of its abbreviations
 (abbreviations always require a trailing period, to avoid colliding with
 ordinary short words); the book table (all 66 books, including numbered
 books like `1 Corinthians`/`2 Samuel`) lives in `bible_refs.rs` rather than
@@ -555,14 +560,18 @@ Every book says "chapter" except Psalms, which is spoken as `"Psalm
 | `Matthew 5:30` | `Matthew chapter five verse thirty` |
 | `Ps. 73:21` | `Psalm seventy three verse twenty one` |
 | `Psalm 73:21` | `Psalm seventy three verse twenty one` |
-| `Ps. 40:7-8` | `Psalm forty verse seven to eight` |
+| `Ps. 40:7-8` | `Psalm forty verses seven to eight` |
+| `Gal. 6:1,2` | `Galatians chapter six verses one and two` |
+| `Eph. 6:1-3,5,7` | `Ephesians chapter six verses one to three, five, and seven` |
 | `1 Cor. 13:4` | `First Corinthians chapter thirteen verse four` |
 | `Mt 5:30` *(no period)* | `Mt 5:30` *(not recognized as an abbreviation, left alone)* |
 | `The meeting is at 5:30` | `The meeting is at 5:30` *(no book name before the colon, left alone)* |
 
 **Known limitations** (deliberately out of scope for now, left unchanged):
-- Cross-chapter ranges (`John 3:16-4:2`) aren't recognized — only a
-  same-chapter verse range (`chapter:verse-verse2`) is.
+- Cross-chapter ranges (`John 3:16-4:2`) aren't recognized — only
+  same-chapter verse ranges (`chapter:verse-verse2`) are.
+- A list with spaces after its commas (`Gal. 6:1, 2`) isn't recognized as
+  one: the reference ends at the first verse.
 - A reference with no verse (`Genesis 1`) or verse only (`v. 5`) isn't
   recognized — the pattern requires the full `chapter:verse` shape.
 
