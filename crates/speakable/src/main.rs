@@ -5,7 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use speakable_timings::{render_demo, timings_from_descript, DescriptTranscript, Timings};
+use speakable_timings::{
+    render_demo, timings_from_descript, DescriptTranscript, Timings, UnreadRun,
+};
 
 #[derive(Parser)]
 #[command(
@@ -236,6 +238,40 @@ fn summarize(t: &Timings, with_report: bool) {
         r.missing.len(),
         r.filtered.len(),
     );
+    for run in t.unread_runs() {
+        eprintln!("{}", unread_warning(t, &run));
+    }
+}
+
+/// One line naming a run of sentences the reader never said: which ones,
+/// how they start, and where the audio skips them.
+fn unread_warning(t: &Timings, run: &UnreadRun) -> String {
+    let (first, last) = (run.sentences.start, run.sentences.end - 1);
+    let which = if first == last {
+        format!("sentence {first}")
+    } else {
+        format!("sentences {first}–{last}")
+    };
+    let at = match (run.after, run.before) {
+        (Some(a), Some(b)) => format!("skipped between {} and {}", mmss(a), mmss(b)),
+        (None, Some(b)) => format!("skipped before {}", mmss(b)),
+        (Some(a), None) => format!("the audio stops after {}", mmss(a)),
+        (None, None) => "nothing in the audio was matched".to_string(),
+    };
+    const OPENING_WORDS: usize = 6;
+    let words: Vec<&str> = t.sentences[first].text.split_whitespace().collect();
+    let opening = if words.len() > OPENING_WORDS {
+        format!("{}…", words[..OPENING_WORDS].join(" "))
+    } else {
+        words.join(" ")
+    };
+    format!("warning: {which} not in the audio, left untimed ({at}): \"{opening}\"")
+}
+
+/// Seconds as `m:ss.s`.
+fn mmss(seconds: f64) -> String {
+    let tenths = (seconds * 10.0).round() as u64;
+    format!("{}:{:02}.{}", tenths / 600, tenths / 10 % 60, tenths % 10)
 }
 
 fn parent_dir(file: &Path) -> Result<PathBuf, String> {
@@ -278,6 +314,33 @@ fn relative_path(target: &Path, base: &Path) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unread_warnings_name_the_sentences_their_opening_and_where() {
+        let json = r#"{"version": "0.1", "audio": "a.mp3", "sentences": [
+            {"index": 0, "text": "One.", "start": 0.0, "end": 1.0},
+            {"index": 1, "text": "We recommend that Meetings and groups begin a discussion."},
+            {"index": 2, "text": "Two."},
+            {"index": 3, "text": "Three.", "start": 78.7, "end": 80.0},
+            {"index": 4, "text": "Four."}
+        ]}"#;
+        let t = Timings::from_json(json).unwrap();
+        let run = |sentences, after, before| UnreadRun {
+            sentences,
+            after,
+            before,
+        };
+        assert_eq!(
+            unread_warning(&t, &run(1..3, Some(77.25), Some(78.7))),
+            "warning: sentences 1–2 not in the audio, left untimed \
+             (skipped between 1:17.3 and 1:18.7): \"We recommend that Meetings and groups…\""
+        );
+        assert_eq!(
+            unread_warning(&t, &run(4..5, Some(80.0), None)),
+            "warning: sentence 4 not in the audio, left untimed \
+             (the audio stops after 1:20.0): \"Four.\""
+        );
+    }
 
     #[test]
     fn relative_paths() {

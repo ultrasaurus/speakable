@@ -18,8 +18,8 @@ use std::path::Path;
 
 use speakable_normalizer::Normalizer;
 use speakable_timings::{
-    document_sentences, words as text_words, FilteredWord, Insertion, InsertionAt, Report,
-    SentenceTiming, SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
+    document_sentences, words as text_words, FilteredWord, Insertion, InsertionAt, MissingWord,
+    Report, SentenceTiming, SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
 };
 
 /// One sentence of the document: its plain text, as `Timings` records it,
@@ -144,10 +144,13 @@ fn sentence_starts(sentences: &[SpokenSentence]) -> Vec<usize> {
 /// Timings from the aligner's output for `sentences`, for the audio file at
 /// `audio` (stored as given: a path relative to where the JSON goes).
 ///
-/// The aligner times every word it keeps, in order, so its words line up
+/// The aligner returns every word it keeps, in order, so its words line up
 /// one to one with the sentences' words minus the ones it filtered out; no
-/// diff is needed, and nothing is reported missing. A sentence runs from
-/// its first word's start to its last word's end.
+/// diff is needed. It leaves out whole sentences the audio doesn't contain
+/// (a passage the reader skipped, or text past where the recording stops)
+/// rather than crush them into the speech around them: their words come
+/// back untimed and are reported missing, and the sentence gets no times.
+/// A sentence runs from its first timed word's start to its last one's end.
 ///
 /// Each sentence lists its text words; a word takes the span of the spoken
 /// words said for it, and has no times when none were. Clear `words` to
@@ -260,7 +263,19 @@ pub fn timings_from_alignment(
                 }
             })
             .collect(),
-        missing: vec![],
+        missing: report
+            .skipped
+            .iter()
+            .flat_map(|run| run.start_word_index..run.end_word_index)
+            .map(|k| {
+                let i = kept[k];
+                MissingWord {
+                    sentence: all[i].0,
+                    word_index: i,
+                    word: all[i].1.to_string(),
+                }
+            })
+            .collect(),
         filtered: report
             .filtered
             .iter()
@@ -353,8 +368,69 @@ mod tests {
             filtered: vec![],
             suspect: vec![],
             insertions: vec![],
+            skipped: vec![],
             threshold: 0.3,
         }
+    }
+
+    /// An untimed aligner word, as it returns a skipped one.
+    fn untimed(word: &str) -> fa::Word {
+        fa::Word {
+            word: word.into(),
+            start: None,
+            end: None,
+            score: None,
+            speaker: None,
+        }
+    }
+
+    #[test]
+    fn skipped_sentences_are_untimed_and_missing() {
+        // The reader skips "Two three.": the aligner returns its words
+        // untimed and reports the run, after a filtered "—" sentence.
+        let s = [
+            sentence("One.", "one."),
+            sentence("—", "—"),
+            sentence("Two three.", "two three."),
+            sentence("Four.", "four."),
+        ];
+        let mut tr = transcript(&["one.", "two", "three.", "four."]);
+        tr.segments[0].words[1] = untimed("two");
+        tr.segments[0].words[2] = untimed("three.");
+        let mut r = report();
+        r.filtered = vec![fa::FilteredWord {
+            word: "—".into(),
+            original_index: 1,
+        }];
+        // Aligner word indexes, not counting the filtered "—".
+        r.skipped = vec![fa::Skip {
+            start_word_index: 1,
+            end_word_index: 3,
+            at: 1.0,
+        }];
+        let t = timings_from_alignment(&s, &tr, &r, "a.mp3");
+        let times: Vec<_> = t.sentences.iter().map(|s| s.times()).collect();
+        assert_eq!(times, vec![Some((0.0, 1.0)), None, None, Some((3.0, 4.0))]);
+        assert_eq!(
+            t.report.missing,
+            vec![
+                MissingWord {
+                    sentence: 2,
+                    word_index: 2,
+                    word: "two".into()
+                },
+                MissingWord {
+                    sentence: 2,
+                    word_index: 3,
+                    word: "three.".into()
+                },
+            ]
+        );
+        assert!(t.sentences[2].words.iter().all(|w| w.start.is_none()));
+        let runs = t.unread_runs();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].sentences, 2..3);
+        assert_eq!((runs[0].after, runs[0].before), (Some(1.0), Some(3.0)));
     }
 
     #[test]

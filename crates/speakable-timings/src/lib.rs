@@ -15,7 +15,7 @@ pub use demo::{render_demo, title_of};
 pub use descript::{DescriptSegment, DescriptTranscript};
 pub use format::{
     Error, FilteredWord, Insertion, InsertionAt, MissingWord, Report, SentenceTiming, Stale,
-    SuspectReason, SuspectWord, Timings, WordTiming, FORMAT_VERSION,
+    SuspectReason, SuspectWord, Timings, UnreadRun, WordTiming, FORMAT_VERSION,
 };
 pub use map::{compare_key, map_words, words, SentenceMap, TimedWord};
 

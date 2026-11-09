@@ -14,14 +14,19 @@ it, by forced alignment ([forced-alignment-rs]). The `speakable` CLI's
 3. Align the whole audio against all the spoken words at once, telling
    the aligner where each sentence starts. Speech that isn't in the text
    then lands between sentences where it can, rather than stretching a
-   word.
-4. Map the aligned words back: a sentence runs from its first word's start
-   to its last word's end, and each text word takes the span of the spoken
-   words said for it. A text word with no spoken words (a symbol the
-   normalizer drops) is listed without times.
+   word. A whole sentence the audio doesn't contain (a passage the reader
+   skipped, or text past where the recording stops) is left out, rather
+   than crushed into the speech around it, which would pull its neighbors'
+   times toward it.
+4. Map the aligned words back: a sentence runs from its first timed word's
+   start to its last one's end, and each text word takes the span of the
+   spoken words said for it. A text word with no spoken words (a symbol the
+   normalizer drops) is listed without times. A sentence left out gets no
+   times, and its words are reported missing.
 
 The result is `speakable_timings::Timings`, including the aligner's report
-(speech not in the text, suspect words, words with nothing to align).
+(speech not in the text, suspect words, words left out, words with nothing
+to align).
 
 ## Use
 

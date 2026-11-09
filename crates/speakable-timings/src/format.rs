@@ -343,6 +343,51 @@ impl Timings {
     pub fn sentence_times(&self) -> Vec<Option<(f64, f64)>> {
         self.sentences.iter().map(SentenceTiming::times).collect()
     }
+
+    /// Runs of consecutive sentences the reader never said: untimed, with
+    /// words in `report.missing`. (A sentence untimed only because it has
+    /// nothing to say, such as a lone "—", isn't one.)
+    /// Needs the report: with an empty report it finds nothing.
+    pub fn unread_runs(&self) -> Vec<UnreadRun> {
+        let mut missing = vec![false; self.sentences.len()];
+        for m in &self.report.missing {
+            if let Some(slot) = missing.get_mut(m.sentence) {
+                *slot = true;
+            }
+        }
+        let unread = |i: usize| missing[i] && self.sentences[i].times().is_none();
+        let times = self.sentence_times();
+        let mut runs: Vec<UnreadRun> = Vec::new();
+        for i in (0..self.sentences.len()).filter(|&i| unread(i)) {
+            match runs.last_mut() {
+                Some(run) if run.sentences.end == i => run.sentences.end = i + 1,
+                _ => runs.push(UnreadRun {
+                    sentences: i..i + 1,
+                    after: times[..i].iter().rev().find_map(|t| t.map(|t| t.1)),
+                    before: None,
+                }),
+            }
+        }
+        for run in &mut runs {
+            run.before = times[run.sentences.end..]
+                .iter()
+                .find_map(|t| t.map(|t| t.0));
+        }
+        runs
+    }
+}
+
+/// Consecutive sentences the reader never said (see `Timings::unread_runs`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnreadRun {
+    /// The sentences' indexes.
+    pub sentences: std::ops::Range<usize>,
+    /// Where the audio skips them: the end of the last timed sentence before
+    /// them (`None` at the start)...
+    pub after: Option<f64>,
+    /// ...and the start of the first timed sentence after them (`None` when
+    /// the recording stops before the text does).
+    pub before: Option<f64>,
 }
 
 /// `"major.minor"` as two numbers.
@@ -385,6 +430,59 @@ mod tests {
         ] {
             assert!(!is_supported(bad), "{bad:?}");
         }
+    }
+
+    #[test]
+    fn unread_runs_are_untimed_sentences_with_missing_words() {
+        let sentence = |index: usize, times: Option<(f64, f64)>| SentenceTiming {
+            index,
+            text: String::new(),
+            start: times.map(|t| t.0),
+            end: times.map(|t| t.1),
+            words: vec![],
+        };
+        let missing = |sentence: usize| MissingWord {
+            sentence,
+            word_index: 0,
+            word: "x".into(),
+        };
+        let t = Timings {
+            version: FORMAT_VERSION.into(),
+            audio: "a.mp3".into(),
+            sentences: vec![
+                sentence(0, None),             // unread, at the start
+                sentence(1, Some((1.0, 2.0))), // timed, with a skipped word
+                sentence(2, None),             // unread...
+                sentence(3, None),             // ...through here
+                sentence(4, None),             // untimed, nothing to say
+                sentence(5, Some((5.0, 6.0))),
+                sentence(6, None), // unread, at the end
+            ],
+            report: Report {
+                missing: [0, 1, 2, 3, 6].map(missing).to_vec(),
+                ..Default::default()
+            },
+        };
+        assert_eq!(
+            t.unread_runs(),
+            vec![
+                UnreadRun {
+                    sentences: 0..1,
+                    after: None,
+                    before: Some(1.0)
+                },
+                UnreadRun {
+                    sentences: 2..4,
+                    after: Some(2.0),
+                    before: Some(5.0)
+                },
+                UnreadRun {
+                    sentences: 6..7,
+                    after: Some(6.0),
+                    before: None
+                },
+            ]
+        );
     }
 
     #[test]

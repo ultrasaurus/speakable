@@ -38,6 +38,11 @@ speakable descript <doc.md> <transcript.json> --audio <audio.mp3> -o <doc.timing
   - The JSON names the audio by its path relative to the JSON file.
   - They print how many sentences got times, and how many insertions,
     suspect, missing and filtered words the report has.
+  - They warn about each run of sentences the reader never said, which is
+    left untimed: the sentences' indexes, how the first one starts, and
+    where the audio skips them. For example: `warning: sentences 11–19 not
+    in the audio, left untimed (skipped between 1:16.2 and 1:18.7): "We
+    recommend that Meetings and groups…"`
   - `--report` also writes those into the JSON's `report`, for review;
     without it the JSON has only the sentence times.
   - `--words` also lists each sentence's words with their times. A word
