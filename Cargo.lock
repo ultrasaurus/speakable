@@ -986,8 +986,9 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "forced-alignment"
-version = "0.5.0"
-source = "git+https://github.com/ultrasaurus/forced-alignment-rs?tag=v0.5.0#7540f1547bbdcf1d686cd05181244d0a423b0dd3"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "620fe3e47dd25801e09cfde3292ef14886d54c2b5cbfb56fd4687e10857d1c23"
 dependencies = [
  "anyhow",
  "candle-core",
@@ -2000,8 +2001,9 @@ dependencies = [
 
 [[package]]
 name = "math-to-speech"
-version = "0.1.20"
-source = "git+https://github.com/ultrasaurus/math-to-speech.git?tag=v0.1.20#2d2a473985240aae7503ad9edbe8a8d13681f44a"
+version = "0.1.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8e7bac50f710f2a45d844f342894d8ea20e017833f8f3d80dab067288bf4d9d"
 dependencies = [
  "anyhow",
  "mitex-parser",
@@ -3199,7 +3201,7 @@ dependencies = [
 
 [[package]]
 name = "speakable"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "clap",
  "speakable-align",
@@ -3211,7 +3213,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-align"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "forced-alignment",
@@ -3221,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-markdown"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "math-to-speech",
  "pulldown-cmark",
@@ -3230,7 +3232,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-normalizer"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "num2words",
  "roman",
@@ -3239,7 +3241,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-splitter"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "roman",
  "serde",
@@ -3248,7 +3250,7 @@ dependencies = [
 
 [[package]]
 name = "speakable-timings"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",

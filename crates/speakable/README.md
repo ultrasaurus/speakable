@@ -1,5 +1,7 @@
 # speakable (CLI)
 
+[![crates.io](https://img.shields.io/crates/v/speakable.svg)](https://crates.io/crates/speakable)
+
 Command-line tools for sentence timings, built on `speakable-timings` and
 `speakable-align`. Kept in its own crate so the libraries don't depend on
 `clap` and other crates they don't need.

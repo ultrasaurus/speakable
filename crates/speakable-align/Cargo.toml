@@ -12,6 +12,6 @@ cuda = ["forced-alignment/cuda"]
 
 [dependencies]
 anyhow = "1"
-forced-alignment = { git = "https://github.com/ultrasaurus/forced-alignment-rs", tag = "v0.5.0" }
+forced-alignment = "0.5.2"
 speakable-normalizer.workspace = true
 speakable-timings.workspace = true

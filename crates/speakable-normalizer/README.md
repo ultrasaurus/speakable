@@ -1,5 +1,8 @@
 # speakable-normalizer
 
+[![crates.io](https://img.shields.io/crates/v/speakable-normalizer.svg)](https://crates.io/crates/speakable-normalizer)
+[![docs.rs](https://img.shields.io/docsrs/speakable-normalizer)](https://docs.rs/speakable-normalizer/latest/speakable_normalizer/)
+
 Rewrites an English sentence into the words that would be spoken by a
 reader.
 

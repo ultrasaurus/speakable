@@ -1,5 +1,8 @@
 # speakable-splitter
 
+[![crates.io](https://img.shields.io/crates/v/speakable-splitter.svg)](https://crates.io/crates/speakable-splitter)
+[![docs.rs](https://img.shields.io/docsrs/speakable-splitter)](https://docs.rs/speakable-splitter/latest/speakable_splitter/)
+
 Splits plain text into sentences for reading aloud.
 
 ## Why

@@ -1,5 +1,8 @@
 # speakable-align
 
+[![crates.io](https://img.shields.io/crates/v/speakable-align.svg)](https://crates.io/crates/speakable-align)
+[![docs.rs](https://img.shields.io/docsrs/speakable-align)](https://docs.rs/speakable-align/latest/speakable_align/)
+
 Sentence and word timings for a markdown document from one audio file of
 it, by forced alignment ([forced-alignment-rs]). The `speakable` CLI's
 `align` command and `demo --audio` use it.

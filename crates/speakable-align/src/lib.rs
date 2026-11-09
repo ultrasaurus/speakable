@@ -1,4 +1,5 @@
-#![doc = include_str!("../README.md")]
+// README.md with its links pinned to this version (build.rs).
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/README.md"))]
 //!
 //! ## The steps
 //!

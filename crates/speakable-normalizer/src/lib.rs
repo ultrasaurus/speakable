@@ -1,4 +1,4 @@
-// README.md with its relative links pointed at this version's tag (build.rs).
+// README.md with its links pinned to this version (build.rs).
 #![doc = include_str!(concat!(env!("OUT_DIR"), "/README.md"))]
 //!
 //! ## Pass order

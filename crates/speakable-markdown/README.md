@@ -1,5 +1,8 @@
 # speakable-markdown
 
+[![crates.io](https://img.shields.io/crates/v/speakable-markdown.svg)](https://crates.io/crates/speakable-markdown)
+[![docs.rs](https://img.shields.io/docsrs/speakable-markdown)](https://docs.rs/speakable-markdown/latest/speakable_markdown/)
+
 Turns markdown into the plain text a voice should read, and splits it into
 sentences.
 

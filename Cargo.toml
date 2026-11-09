@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ultrasaurus/speakable"
@@ -18,11 +18,11 @@ repository = "https://github.com/ultrasaurus/speakable"
 # The crates depend on each other through these entries, so a release changes
 # the version here and in `workspace.package` above.
 [workspace.dependencies]
-speakable-splitter = { path = "crates/speakable-splitter", version = "0.2.2" }
-speakable-markdown = { path = "crates/speakable-markdown", version = "0.2.2" }
-speakable-normalizer = { path = "crates/speakable-normalizer", version = "0.2.2" }
-speakable-timings = { path = "crates/speakable-timings", version = "0.2.2" }
-speakable-align = { path = "crates/speakable-align", version = "0.2.2" }
+speakable-splitter = { path = "crates/speakable-splitter", version = "0.3.0" }
+speakable-markdown = { path = "crates/speakable-markdown", version = "0.3.0" }
+speakable-normalizer = { path = "crates/speakable-normalizer", version = "0.3.0" }
+speakable-timings = { path = "crates/speakable-timings", version = "0.3.0" }
+speakable-align = { path = "crates/speakable-align", version = "0.3.0" }
 
 # The normalizer runs about 9x slower unoptimized, which makes its large test
 # suite (and any dev build that normalizes a whole document) slow.

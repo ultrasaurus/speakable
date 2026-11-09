@@ -9,4 +9,4 @@ repository.workspace = true
 [dependencies]
 pulldown-cmark = "0.13"
 speakable-splitter.workspace = true
-math-to-speech = { git = "https://github.com/ultrasaurus/math-to-speech.git", tag = "v0.1.20" }
+math-to-speech = "0.1.21"

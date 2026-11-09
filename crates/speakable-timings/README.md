@@ -1,5 +1,8 @@
 # speakable-timings
 
+[![crates.io](https://img.shields.io/crates/v/speakable-timings.svg)](https://crates.io/crates/speakable-timings)
+[![docs.rs](https://img.shields.io/docsrs/speakable-timings)](https://docs.rs/speakable-timings/latest/speakable_timings/)
+
 Sentence timings: a start and end time for each sentence of a markdown
 document, from one recording of it.
 
