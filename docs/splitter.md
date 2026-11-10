@@ -16,7 +16,8 @@ real text broke the plain Unicode split in one of these ways.
 `crates/speakable-splitter/src/lib.rs`):
 
 1. Hide periods that don't end a sentence: abbreviations, fixed phrases,
-   Bible book abbreviations before a verse, and URLs.
+   Bible book abbreviations before a verse, URLs, and periods inside
+   citations in parentheses.
 2. Split each line at Unicode (UAX #29) sentence boundaries, then recover
    any characters the split dropped.
 3. Reattach footnote and citation markers to the sentence they cite, in
@@ -78,6 +79,17 @@ and restored afterward, so UAX #29 never sees it.
     a query string (`watch?si=…`) split too.
   - Punctuation at the URL's end (`see https://x.org/a.`, `…/a).`) still
     ends the sentence.
+- **Citations in parentheses**: every `.`, `?` and `!` inside a `(…)`
+  that holds a citation (see "Citation fields" below) is hidden.
+  - An old-style citation like `(Bull. Md. Agric. Exp. Sta. 90:34–38, 1903
+    — C.N. Du Bois)` split after `Bull.` and `C.N.`. Journal and name
+    abbreviations are too varied for the abbreviation list.
+  - Only citations. A parenthetical of prose sentences, `(Clergy are
+    encouraged … enough. Clergy can help … itself.)`, still splits into
+    its sentences: hiding periods in every parenthetical merged such asides,
+    which are common.
+  - A citation's final period is hidden too: it can only be `et al.` or
+    `n.d.`, so `(National Park Service, n.d.) Next…` breaks after the `)`.
 
 ## The Unicode split
 
@@ -145,9 +157,18 @@ A marker body is a citation when:
 - It has two or more fields, split on top-level `,` or `;`. A separator
   inside a quoted title isn't a field boundary.
 - Each field contains only letters, digits, whitespace and
-  `. - : & ' , ; "` (straight or curly quotes).
-- At least one field contains a digit. That's what separates a citation
-  from a parenthetical aside: `(see appendix)` has no digit.
+  `. - – — : & ' , ; "` (straight or curly quotes).
+- At least one field contains a digit, or is `n.d.` (no date), which
+  stands in for a year: `(National Park Service, n.d.)`. That's what
+  separates a citation from a parenthetical aside: `(see appendix)` has
+  neither.
+- It doesn't end a sentence before its closing bracket. `(For more see
+  Part II, page 24.)` has a comma and a digit, but it's a sentence in
+  parentheses: citations put the period after the bracket. At the end of
+  a paragraph it used to join the sentence before it. The exceptions are
+  the abbreviations a citation can end with: `et al.`, in an old-style
+  citation that ends with its author (`… 1903 — C.N. Du Bois et al.`), and
+  `n.d.` (no date).
 
 It doesn't check what each field is (author, year, locator), so one rule
 covers many styles:
@@ -158,6 +179,8 @@ covers many styles:
 - Works and page references: `Fox, Works, 8:42`; `Fox, Works, 7:332,
   335-6`; a quoted title followed by `; Works of Isaac Penington, vol. 3:
   pp.133-7`.
+- Older author-last styles: `Treaty of Non-Aggression, October 1939 — Von
+  Ribbentrop`.
 
 ### Locator tails
 

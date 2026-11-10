@@ -188,6 +188,7 @@ fn split_paragraph(paragraph: &str) -> Vec<String> {
         protected = hide_bible_book_period(&protected, abbrev);
     }
     protected = hide_url_terminators(&protected);
+    protected = hide_parenthesized_terminators(&protected);
 
     // Split on single newlines (hard breaks) then Unicode sentence boundaries.
     let raw: Vec<String> = protected
@@ -435,6 +436,47 @@ fn hide_url_terminators(text: &str) -> String {
     out
 }
 
+/// Hides every `.`, `?` and `!` inside a `(...)` that closes later in the
+/// same paragraph and holds a citation ([`is_citation_field_list`]). An
+/// old-style citation such as `(Bull. Md. Agric. Exp. Sta. 90:34–38, 1903 —
+/// C.N. Du Bois)` broke after `Bull.` and `C.N.`, abbreviations no list can
+/// keep up with. A citation never ends a sentence before its `)` (a final
+/// period is `et al.` or `n.d.`), so that one is hidden too, and `(…, n.d.)
+/// Next…` breaks after the `)`, not inside it. Only citations: a
+/// parenthetical of prose sentences (`(Clergy are encouraged … enough.
+/// Clergy can help … itself.)`) still splits into its sentences.
+/// Parentheses nest; an opener with no closer hides nothing.
+fn hide_parenthesized_terminators(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut hidden = vec![false; chars.len()];
+    let mut open: Vec<usize> = Vec::new();
+    for (i, &c) in chars.iter().enumerate() {
+        match c {
+            '(' => open.push(i),
+            ')' => {
+                let Some(start) = open.pop() else { continue };
+                let body: String = chars[start + 1..i].iter().collect();
+                if is_citation_field_list(&body) {
+                    for flag in &mut hidden[start + 1..i] {
+                        *flag = true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    chars
+        .iter()
+        .zip(&hidden)
+        .map(|(&c, &h)| match (c, h) {
+            ('.', true) => PERIOD_PLACEHOLDER.to_string(),
+            ('?', true) => QUESTION_PLACEHOLDER.to_string(),
+            ('!', true) => EXCLAMATION_PLACEHOLDER.to_string(),
+            (c, _) => c.to_string(),
+        })
+        .collect()
+}
+
 /// Byte offset of the first `http://` / `https://` in `text` that starts a
 /// word.
 fn url_start(text: &str) -> Option<usize> {
@@ -632,10 +674,15 @@ const MARKER_BRACKETS: &[(char, char)] = &[('[', ']'), ('(', ')')];
 /// - 2+ fields split on top-level `,`/`;` (`split_top_level_citation_fields`
 ///   — a separator *inside* a quoted span doesn't count as a boundary),
 ///   each field made up only of
-///   letters/digits/whitespace/`. - : & ' , ; " " "`.
-/// - At least one field must contain a digit — the signal that
-///   distinguishes a real citation from ordinary parenthetical prose
-///   (`(see appendix)` has no digit anywhere, so it's still excluded).
+///   letters/digits/whitespace/`. - – — : & ' , ; " " "`.
+/// - It must not end a sentence before its closing bracket (`…, page
+///   24.)`): that's a sentence in parentheses. Text ending in `et al.`
+///   (an old-style citation that ends with its author) or `n.d.` (no date)
+///   is the exception.
+/// - At least one field must contain a digit, or be `n.d.` standing in for
+///   a year — the signal that distinguishes a real citation from ordinary
+///   parenthetical prose (`(see appendix)` has neither, so it's still
+///   excluded).
 /// - Deliberately permissive about field *role* (author vs. year vs.
 ///   locator) rather than pattern-matching each citation style
 ///   individually — one rule covers:
@@ -740,12 +787,28 @@ fn split_top_level_citation_fields(body: &str) -> Vec<&str> {
 /// rationale and worked examples — this is just the character-class check
 /// itself: 2+ top-level-`,`/`;`-separated (quote-aware, see
 /// `split_top_level_citation_fields`), non-empty, trimmed fields, each
-/// restricted to letters/digits/whitespace/`. - : & ' , ; " " "`, at least
+/// restricted to letters/digits/whitespace/`. - – — : & ' , ; " " "`, at least
 /// one field containing a digit. A field is allowed to contain `,`/`;`
 /// itself (unlike the top-level separator check) since those can only
 /// appear there if they were inside a quoted span to begin with — the
 /// splitting above already consumed every real top-level occurrence.
 fn is_citation_field_list(body: &str) -> bool {
+    // Text that ends a sentence before its closing bracket is a sentence in
+    // parentheses (`(For more see Part II, page 24.)`), not a citation:
+    // citations put the period after the bracket. The exceptions are
+    // abbreviations a citation can end with: `et al.` (an old-style citation
+    // that ends with its author, `… — C.N. Du Bois et al.`) and `n.d.` (no
+    // date, `National Park Service, n.d.`). Periods may already be hidden
+    // (`et al` is in `ABBREVS`), so they're compared as literal `.`.
+    let plain = body.replace(PERIOD_PLACEHOLDER, ".");
+    let end = plain
+        .trim_end()
+        .trim_end_matches(['"', '\'', '\u{201D}', '\u{2019}']);
+    if let Some(stem) = end.strip_suffix(['.', '?', '!']) {
+        if !stem.ends_with("et al") && !stem.ends_with("n.d") {
+            return false;
+        }
+    }
     let fields: Vec<&str> = split_top_level_citation_fields(body)
         .into_iter()
         .map(str::trim)
@@ -768,6 +831,8 @@ fn is_citation_field_list(body: &str) -> bool {
                 || matches!(
                     c,
                     '.' | '-'
+                        | '\u{2013}'
+                        | '\u{2014}'
                         | ':'
                         | '&'
                         | '\''
@@ -780,8 +845,11 @@ fn is_citation_field_list(body: &str) -> bool {
                 )
         })
     };
-    fields.iter().all(|f| field_ok(f))
-        && fields.iter().any(|f| f.chars().any(|c| c.is_ascii_digit()))
+    // `n.d.` (no date) stands in for a year.
+    let dated = |f: &str| {
+        f.chars().any(|c| c.is_ascii_digit()) || f.replace(PERIOD_PLACEHOLDER, ".") == "n.d."
+    };
+    fields.iter().all(|f| field_ok(f)) && fields.iter().any(|f| dated(f))
 }
 
 /// `unicode_sentences()` extends a sentence-terminal run (`.`/`!`/`?`)
@@ -1518,6 +1586,98 @@ mod tests {
         ] {
             assert_eq!(texts(split(text)), want, "{text}");
         }
+    }
+
+    #[test]
+    fn old_style_citation_in_parentheses_stays_in_its_sentence() {
+        for text in [
+            "The regional borders were initially redrawn following a secret diplomatic dispatch \
+             (Treaty of Non-Aggression, October 1939 \u{2014} Von Ribbentrop).",
+            "The Solanum carolinense specimen prefers highly acidic sandy loam \
+             (Bull. Md. Agric. Exp. Sta. 90:34\u{2013}38, 1903 \u{2014} C.N. Du Bois).",
+        ] {
+            assert_eq!(texts(split(text)), vec![text], "{text}");
+        }
+    }
+
+    #[test]
+    fn old_style_citation_ending_in_et_al_joins_the_sentence_before() {
+        let text = "The specimen prefers sandy loam. \
+                    (Bull. Md. Agric. Exp. Sta. 90:34\u{2013}38, 1903 \u{2014} C.N. Du Bois et al.)";
+        assert_eq!(texts(split(text)), vec![text]);
+    }
+
+    #[test]
+    fn sentence_in_parentheses_is_not_a_citation() {
+        // It has a comma and a digit, like a citation, but it ends a
+        // sentence before its `)`.
+        let paren = "(For more definitions of sexual abuse see Part II, page 24.)";
+        let expected = vec!["To restore power to one who has lost it.", paren];
+        assert_eq!(
+            texts(split(&format!(
+                "To restore power to one who has lost it. {paren}"
+            ))),
+            expected
+        );
+        assert_eq!(
+            texts(split(&format!(
+                "To restore power to one who has lost it. {paren} We recommend this."
+            ))),
+            vec![
+                "To restore power to one who has lost it.",
+                paren,
+                "We recommend this."
+            ]
+        );
+    }
+
+    #[test]
+    fn modern_citations_still_join_the_sentence_before() {
+        for (sentence, citation) in [
+            ("As shown.", "(Smith et al., 2020)"),
+            ("As written.", "(Fox, Works, 8:42)"),
+        ] {
+            let text = format!("{sentence} {citation}");
+            assert_eq!(texts(split(&text)), vec![text.as_str()]);
+        }
+    }
+
+    #[test]
+    fn parenthetical_of_prose_sentences_still_splits() {
+        let text = "Refer members to agencies. (Clergy are encouraged not to counsel. \
+                    Clergy can help offenders spiritually.) Next.";
+        assert_eq!(
+            texts(split(text)),
+            vec![
+                "Refer members to agencies.",
+                "(Clergy are encouraged not to counsel.",
+                "Clergy can help offenders spiritually.)",
+                "Next."
+            ]
+        );
+    }
+
+    #[test]
+    fn no_date_citation_joins_the_sentence_before() {
+        let text = "As shown. (National Park Service, n.d.)";
+        assert_eq!(texts(split(text)), vec![text]);
+        assert_eq!(
+            texts(split("As shown. (National Park Service, n.d.) Next one.")),
+            vec!["As shown. (National Park Service, n.d.)", "Next one."]
+        );
+    }
+
+    #[test]
+    fn unclosed_parenthesis_still_splits() {
+        assert_eq!(
+            texts(split("A stray ( opener. Then more.")),
+            vec!["A stray ( opener.", "Then more."]
+        );
+    }
+
+    #[test]
+    fn square_brackets_still_split_at_sentence_ends() {
+        assert_eq!(texts(split("[Ed. note: the first. The second.]")).len(), 2);
     }
 
     #[test]
