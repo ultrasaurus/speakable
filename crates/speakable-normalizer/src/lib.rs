@@ -4112,8 +4112,12 @@ pub fn number_to_words(n: u64) -> String {
 /// `"The"` never reaches this code path at all — ordinary capitalization
 /// is untouched.
 const SHORT_COMMON_WORDS: &[&str] = &[
-    "a", "an", "and", "as", "at", "be", "but", "by", "for", "if", "in", "is", "it", "nor", "not",
-    "of", "off", "on", "or", "out", "per", "so", "the", "to", "up", "via", "we", "yet",
+    "a", "age", "air", "all", "an", "and", "any", "are", "art", "as", "at", "be", "big", "but",
+    "by", "can", "day", "did", "do", "end", "eye", "for", "get", "go", "got", "had", "has", "he",
+    "her", "him", "his", "how", "if", "in", "is", "it", "its", "job", "law", "let", "low", "man",
+    "may", "me", "men", "my", "new", "no", "nor", "not", "now", "of", "off", "old", "on", "one",
+    "or", "our", "out", "own", "per", "say", "sea", "see", "she", "six", "so", "ten", "the", "to",
+    "too", "top", "two", "up", "via", "war", "was", "way", "we", "why", "win", "yes", "yet", "you",
 ];
 
 fn process_alpha_token(token: &str) -> String {
@@ -6131,6 +6135,16 @@ mod tests {
         assert_eq!(process_alpha_token("AND"), "And");
         assert_eq!(process_alpha_token("NOT"), "Not");
         assert_eq!(process_alpha_token("BE"), "Be");
+        assert_eq!(process_alpha_token("HOW"), "How");
+        assert_eq!(process_alpha_token("WHY"), "Why");
+        assert_eq!(process_alpha_token("ONE"), "One");
+        assert_eq!(process_alpha_token("END"), "End");
+        assert_eq!(process_alpha_token("GOT"), "Got");
+        assert_eq!(process_alpha_token("BIG"), "Big");
+        assert_eq!(process_alpha_token("NEW"), "New");
+        assert_eq!(process_alpha_token("YOU"), "You");
+        assert_eq!(process_alpha_token("WAR"), "War");
+        assert_eq!(process_alpha_token("TWO"), "Two");
         // A real acronym of the same length is unaffected.
         assert_eq!(process_alpha_token("TTS"), "T T S");
         // Normal mixed-case usage was never broken in the first place —
